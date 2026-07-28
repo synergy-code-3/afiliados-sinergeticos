@@ -27,11 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
         <header className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#080808]/80 backdrop-blur-md">
           <div className="wrap flex h-16 items-center justify-between">
-            <a href="/" className="text-[17px] font-extrabold tracking-tight">
-              SINERGÉTICOS<span className="text-[#19e16d]">.</span>
-              <span className="ml-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">
-                Afiliados
-              </span>
+            <a href="/" className="flex items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo-afiliados.png" alt="Sinergéticos Afiliados" className="h-9 w-auto" />
             </a>
             <span className="sec-tag">
               <span className="pulse inline-block h-1.5 w-1.5 rounded-full bg-[#19e16d]" />
