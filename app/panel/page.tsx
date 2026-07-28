@@ -14,6 +14,14 @@ interface Inscripcion {
   created_at: string;
 }
 
+interface Recurso {
+  id: string;
+  titulo: string;
+  descripcion: string;
+  url: string;
+  tipo: string;
+}
+
 export default async function Panel() {
   const supabase = await supabaseSession();
   const {
@@ -34,12 +42,20 @@ export default async function Panel() {
     .order("created_at", { ascending: false })
     .returns<Inscripcion[]>();
 
+  const { data: recursos } = await supabase
+    .from("af_recursos")
+    .select("id, titulo, descripcion, url, tipo")
+    .order("orden", { ascending: true })
+    .order("created_at", { ascending: false })
+    .returns<Recurso[]>();
+
   return (
     <PanelClient
       nombre={perfil?.nombre ?? user.email ?? "Afiliado"}
       activo={perfil?.activo ?? true}
       sinPerfil={!perfil}
       inscripciones={inscripciones ?? []}
+      recursos={recursos ?? []}
     />
   );
 }

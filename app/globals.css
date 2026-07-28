@@ -1,26 +1,185 @@
 @import "tailwindcss";
 
+/* Estética del sistema de embudos Sinergéticos (eventos SEED) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --font-display: var(--font-outfit), 'Outfit', sans-serif;
+  --font-body:    var(--font-outfit), 'Outfit', sans-serif;
+
+  --bg:        #080808;
+  --bg-2:      #0f0f0f;
+  --text:      #ffffff;
+  --text-dim:  rgba(255,255,255,0.55);
+  --text-faint:rgba(255,255,255,0.28);
+  --border:    rgba(255,255,255,0.09);
+  --border-md: rgba(255,255,255,0.14);
+  --accent:     #19e16d;
+  --accent-rgb: 25,225,109;
+  --green:     var(--accent);
+  --surface:   rgba(255,255,255,0.05);
+  --surface-md:rgba(255,255,255,0.08);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+* { box-sizing: border-box; }
+html { overflow-x: clip; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
 }
+
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.btn-press:active {
+  transform: scale(0.97) translateY(1px) !important;
+  transition: transform 0.08s ease !important;
+}
+
+/* Noise texture overlay */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 999;
+  mix-blend-mode: overlay;
+}
+
+/* ── Animations ── */
+@keyframes up {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes glow-pulse {
+  0%,100% { box-shadow: 0 0 20px 0px rgba(var(--accent-rgb),0.25), 0 0 0 0 rgba(var(--accent-rgb),0); }
+  50%      { box-shadow: 0 0 40px 8px rgba(var(--accent-rgb),0.35), 0 0 60px 20px rgba(var(--accent-rgb),0.08); }
+}
+@keyframes aurora-1 {
+  0%, 100% { transform: translate(-10%, -6%) scale(1); }
+  50%      { transform: translate(9%, 5%) scale(1.22); }
+}
+@keyframes aurora-2 {
+  0%, 100% { transform: translate(13%, 9%) scale(1.12) rotate(8deg); }
+  50%      { transform: translate(-10%, -7%) scale(0.9) rotate(-8deg); }
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.85); }
+}
+
+.a1 { animation: up 0.8s cubic-bezier(0.16,1,0.3,1) 0.00s both; }
+.a2 { animation: up 0.8s cubic-bezier(0.16,1,0.3,1) 0.14s both; }
+.a3 { animation: up 0.8s cubic-bezier(0.16,1,0.3,1) 0.26s both; }
+.a4 { animation: up 0.8s cubic-bezier(0.16,1,0.3,1) 0.38s both; }
+.btn-glow { animation: glow-pulse 3s ease-in-out infinite; }
+.pulse    { animation: pulse-dot 2s ease-in-out infinite; }
+
+/* Aurora del hero */
+.aurora {
+  position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+}
+.aurora span {
+  position: absolute; border-radius: 50%; filter: blur(90px);
+}
+.aurora .b1 {
+  width: 520px; height: 520px; top: -180px; left: -120px;
+  background: rgba(var(--accent-rgb),0.16);
+  animation: aurora-1 16s ease-in-out infinite;
+}
+.aurora .b2 {
+  width: 420px; height: 420px; bottom: -160px; right: -100px;
+  background: rgba(var(--accent-rgb),0.10);
+  animation: aurora-2 20s ease-in-out infinite;
+}
+
+/* ── Layout ── */
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; width: 100%; }
+
+/* ── Glass card ── */
+.glass {
+  background: var(--surface);
+  border: 1px solid var(--border-md);
+  border-radius: 16px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Form fields ── */
+.field {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(var(--accent-rgb),0.50);
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 400;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.field::placeholder { color: rgba(255,255,255,0.45); }
+.field:focus {
+  border-color: var(--green);
+  background: rgba(var(--accent-rgb),0.07);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.20);
+}
+select.field option { background: #0f0f0f; color: #fff; }
+
+.label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+/* ── Sec tag ── */
+.sec-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--green);
+}
+
+/* ── CTA buttons ── */
+.btn-cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--green); color: #000;
+  font-weight: 800; font-size: 16px;
+  border: none; border-radius: 10px;
+  padding: 15px 28px; cursor: pointer;
+  transition: filter 0.2s, transform 0.2s;
+}
+.btn-cta:hover { filter: brightness(1.12); }
+.btn-cta:disabled { opacity: 0.5; cursor: default; }
+
+.btn-ghost {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: transparent; color: rgba(255,255,255,0.9);
+  font-weight: 600; font-size: 15px;
+  border: 1px solid var(--border-md); border-radius: 10px;
+  padding: 14px 24px; cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.btn-ghost:hover { background: var(--surface); border-color: rgba(255,255,255,0.3); }
+
+/* ── Rule ── */
+.rule { height: 1px; background: var(--border); }
