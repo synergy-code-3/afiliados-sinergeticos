@@ -58,6 +58,35 @@ export async function POST(req: NextRequest) {
   const telErr = validarTelefono(telefono);
   if (telErr) return NextResponse.json({ error: telErr }, { status: 400 });
 
+  // candado: si la persona ya está en la base de Sinergéticos, no se puede
+  // inscribir — los afiliados solo traen contactos NUEVOS
+  const { data: yaEnBase, error: rpcErr } = await service.rpc("persona_en_base", {
+    p_email: email,
+    p_telefono: telefono,
+  });
+  if (rpcErr) {
+    return NextResponse.json({ error: "No se pudo verificar el contacto. Intenta de nuevo." }, { status: 500 });
+  }
+  if (yaEnBase) {
+    return NextResponse.json(
+      { error: "Esa persona ya está registrada en nuestra base — solo puedes inscribir contactos nuevos." },
+      { status: 409 },
+    );
+  }
+
+  // belt extra: ya inscrita por algún afiliado con boleto emitido
+  const { count: dupCount } = await service
+    .from("af_inscripciones")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "emitido")
+    .or(`telefono.eq.${telefono},email.eq.${email}`);
+  if ((dupCount ?? 0) > 0) {
+    return NextResponse.json(
+      { error: "Esa persona ya fue inscrita por un afiliado." },
+      { status: 409 },
+    );
+  }
+
   // tope suave anti-abuso: máx 50 inscripciones por afiliado por día
   const { count } = await service
     .from("af_inscripciones")

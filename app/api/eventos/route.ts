@@ -8,10 +8,13 @@ interface EventoTicketera {
   date: string;
   venue?: string;
   timezone?: string;
+  isActive?: boolean;
+  freeTicketEnabled?: boolean;
 }
 
-/** Eventos próximos invitables (gratis): excluye upgrades, pruebas y eventos
- * de paga como Synergy Unlimited. */
+/** Eventos activos invitables: sincroniza con la boletera (isActive +
+ * boleto gratis habilitado + fecha futura). Excluye por nombre los
+ * upgrades, pruebas y eventos de paga como Synergy Unlimited. */
 export async function GET() {
   const r = await fetch("https://synergyticket.net/api/events", {
     next: { revalidate: 300 },
@@ -21,6 +24,8 @@ export async function GET() {
   const ahora = Date.now();
   const eventos = todos
     .filter((e) => {
+      if (e.isActive === false) return false;
+      if (e.freeTicketEnabled === false) return false;
       const n = (e.name ?? "").toLowerCase();
       if (n.includes("upgrade") || n.includes("prueba") || n.includes("unlimited")) return false;
       const d = new Date(e.date).getTime();
