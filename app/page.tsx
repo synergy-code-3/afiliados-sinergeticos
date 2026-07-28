@@ -1,65 +1,51 @@
-import Image from "next/image";
+import Link from "next/link";
+import { supabaseSession } from "@/lib/supabase-server";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await supabaseSession();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) redirect("/panel");
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <main className="space-y-8">
+      <section className="rounded-2xl border border-white/10 bg-white/5 p-8">
+        <h1 className="text-3xl font-extrabold leading-tight">
+          Invita a tus conocidos a los eventos <span className="text-[#19e16d]">Sinergéticos</span>
+        </h1>
+        <p className="mt-3 text-white/70">
+          Crea tu cuenta de afiliado, inscribe a las personas que quieres llevar al evento y su
+          boleto les llega al instante por WhatsApp. Tú llevas el conteo de a quiénes has invitado.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href="/crear-cuenta"
+            className="rounded-xl bg-[#19e16d] px-5 py-3 font-bold text-black transition hover:brightness-110"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Crear mi cuenta
+          </Link>
+          <Link
+            href="/entrar"
+            className="rounded-xl border border-white/20 px-5 py-3 font-semibold text-white/90 transition hover:bg-white/10"
           >
-            Documentation
-          </a>
+            Ya tengo cuenta
+          </Link>
         </div>
-      </main>
-    </div>
+      </section>
+      <section className="grid gap-4 sm:grid-cols-3">
+        {[
+          ["1. Crea tu cuenta", "Solo tu nombre, correo y una contraseña."],
+          ["2. Inscribe personas", "Nombre, correo y WhatsApp de tu invitado, y el evento al que va."],
+          ["3. Su boleto llega solo", "La persona recibe su boleto por WhatsApp al instante."],
+        ].map(([t, d]) => (
+          <div key={t} className="rounded-xl border border-white/10 bg-white/5 p-5">
+            <p className="font-bold text-[#19e16d]">{t}</p>
+            <p className="mt-1 text-sm text-white/70">{d}</p>
+          </div>
+        ))}
+      </section>
+    </main>
   );
 }
