@@ -3,6 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 import { supabaseService } from "@/lib/supabase-server";
 import { validarTelefono } from "@/lib/phone";
 
+/** WhatsApps de prueba (David): pasan el candado aunque ya estén en la base. */
+const TELEFONOS_PRUEBA = ["+525513893229"];
+
 interface Body {
   event_tk_id?: string;
   event_name?: string;
@@ -58,33 +61,38 @@ export async function POST(req: NextRequest) {
   const telErr = validarTelefono(telefono);
   if (telErr) return NextResponse.json({ error: telErr }, { status: 400 });
 
-  // candado: si la persona ya está en la base de Sinergéticos, no se puede
-  // inscribir — los afiliados solo traen contactos NUEVOS
-  const { data: yaEnBase, error: rpcErr } = await service.rpc("persona_en_base", {
-    p_email: email,
-    p_telefono: telefono,
-  });
-  if (rpcErr) {
-    return NextResponse.json({ error: "No se pudo verificar el contacto. Intenta de nuevo." }, { status: 500 });
-  }
-  if (yaEnBase) {
-    return NextResponse.json(
-      { error: "Esa persona ya está registrada en nuestra base — solo puedes inscribir contactos nuevos." },
-      { status: 409 },
-    );
-  }
+  // números de prueba de David: se saltan el candado anti-duplicados
+  const esPrueba = TELEFONOS_PRUEBA.includes(telefono);
 
-  // belt extra: ya inscrita por algún afiliado con boleto emitido
-  const { count: dupCount } = await service
-    .from("af_inscripciones")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "emitido")
-    .or(`telefono.eq.${telefono},email.eq.${email}`);
-  if ((dupCount ?? 0) > 0) {
-    return NextResponse.json(
-      { error: "Esa persona ya fue inscrita por un afiliado." },
-      { status: 409 },
-    );
+  if (!esPrueba) {
+    // candado: si la persona ya está en la base de Sinergéticos, no se puede
+    // inscribir — los afiliados solo traen contactos NUEVOS
+    const { data: yaEnBase, error: rpcErr } = await service.rpc("persona_en_base", {
+      p_email: email,
+      p_telefono: telefono,
+    });
+    if (rpcErr) {
+      return NextResponse.json({ error: "No se pudo verificar el contacto. Intenta de nuevo." }, { status: 500 });
+    }
+    if (yaEnBase) {
+      return NextResponse.json(
+        { error: "Esa persona ya está registrada en nuestra base — solo puedes inscribir contactos nuevos." },
+        { status: 409 },
+      );
+    }
+
+    // belt extra: ya inscrita por algún afiliado con boleto emitido
+    const { count: dupCount } = await service
+      .from("af_inscripciones")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "emitido")
+      .or(`telefono.eq.${telefono},email.eq.${email}`);
+    if ((dupCount ?? 0) > 0) {
+      return NextResponse.json(
+        { error: "Esa persona ya fue inscrita por un afiliado." },
+        { status: 409 },
+      );
+    }
   }
 
   // tope suave anti-abuso: máx 50 inscripciones por afiliado por día
