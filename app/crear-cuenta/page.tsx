@@ -81,7 +81,7 @@ export default function CrearCuenta() {
               <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Mínimo 8 caracteres" autoComplete="new-password" className="field" />
             </div>
             {msg ? <p className="text-sm font-semibold text-[#ffb2b2]">{msg}</p> : null}
-            <button disabled={loading} className="btn-cta btn-press w-full">
+            <button disabled={loading} className="btn-cta btn-press !mt-6 w-full">
               {loading ? "Creando…" : "Crear cuenta →"}
             </button>
           </form>

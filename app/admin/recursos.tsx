@@ -77,7 +77,7 @@ export default function AdminRecursos({ recursos, k }: { recursos: Recurso[]; k:
           </div>
         </div>
         {msg ? <p className="text-sm font-semibold text-[#ffb2b2]">{msg}</p> : null}
-        <button disabled={loading} className="btn-cta btn-press">
+        <button disabled={loading} className="btn-cta btn-press !mt-6">
           {loading ? "Subiendo…" : "Agregar recurso"}
         </button>
       </form>

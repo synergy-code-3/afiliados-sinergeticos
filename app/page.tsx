@@ -16,7 +16,7 @@ export default async function Home() {
         <span className="b2" />
       </div>
 
-      <section className="wrap relative pb-16 pt-20 sm:pt-28">
+      <section className="wrap relative pb-24 pt-20 sm:pt-28">
         <p className="sec-tag a1 mb-5">
           <span className="pulse inline-block h-1.5 w-1.5 rounded-full bg-[#19e16d]" />
           Eventos presenciales · Entrada gratuita
@@ -29,7 +29,7 @@ export default async function Home() {
           Crea tu cuenta de afiliado, inscribe a las personas que quieres llevar y su boleto les
           llega al instante por WhatsApp. Tú llevas el conteo de tus invitados.
         </p>
-        <div className="a3 mt-8 flex flex-wrap gap-3">
+        <div className="a3 mt-10 flex flex-wrap gap-4">
           <Link href="/crear-cuenta" className="btn-cta btn-glow btn-press">
             Crear mi cuenta →
           </Link>

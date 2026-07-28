@@ -220,7 +220,7 @@ export default function PanelClient({
             {msg ? (
               <p className={`text-sm font-semibold ${msg.ok ? "text-[#19e16d]" : "text-[#ffb2b2]"}`}>{msg.texto}</p>
             ) : null}
-            <button disabled={loading} className="btn-cta btn-press w-full">
+            <button disabled={loading} className="btn-cta btn-press !mt-6 w-full">
               {loading ? "Creando boleto…" : "Inscribir y crear boleto →"}
             </button>
           </form>
@@ -241,7 +241,7 @@ export default function PanelClient({
                   {r.descripcion ? (
                     <p className="mt-1 text-sm leading-relaxed text-white/55">{r.descripcion}</p>
                   ) : null}
-                  <div className="mt-4 flex gap-2 pt-1">
+                  <div className="mt-5 flex flex-wrap gap-3">
                     <a
                       href={r.url}
                       target="_blank"
