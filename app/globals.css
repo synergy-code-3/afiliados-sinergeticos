@@ -104,7 +104,14 @@ body::after {
 }
 
 /* ── Layout ── */
-.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; width: 100%; }
+.wrap {
+  max-width: 1080px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+  width: 100%;
+}
 
 /* ── Glass card ── */
 .glass {
