@@ -9,6 +9,7 @@ export async function supabaseSession() {
     process.env.NEXT_PUBLIC_SUPABASE_URL as string,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string,
     {
+      db: { schema: "afiliados" },
       cookies: {
         getAll() {
           return cookieStore.getAll();
@@ -30,6 +31,6 @@ export function supabaseService() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL as string,
     process.env.SUPABASE_SERVICE_ROLE_KEY as string,
-    { auth: { persistSession: false } },
+    { auth: { persistSession: false }, db: { schema: "afiliados" } },
   );
 }
