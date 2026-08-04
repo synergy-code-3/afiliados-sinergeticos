@@ -66,6 +66,14 @@ WhatsApp (es el mismo boleto de la boletera de siempre, renombrado en el copy).
 - **Cron** `/api/cron/reintentar-boletos` (vercel.json, cada 15 min): cura boletos atorados
   solo — patrón adoptado del embudo-bgi (análisis pedido por Manuel).
 
+**Verificado EN PRODUCCIÓN (4-ago 17:53):** push a `main` disparó el deploy solo — el
+proyecto Vercel está enlazado a GitHub, así que **push = deploy** (no hace falta el CLI ni
+el scope synergy-code). Smoke: 7 rutas públicas 200 · /panel y /bienvenida 307→/entrar ·
+5 assets 200 · /api/inscribir y /api/admin/* 401 sin sesión · cron responde
+`{ok:true, revisadas:0}` · noindex presente. Revisión adversarial previa al push:
+18 agentes (3 lentes + verificadores), 12 hallazgos confirmados, TODOS corregidos
+(detalle en el commit 94cce38).
+
 **⚠️ Migración 0082 pendiente de aplicar** (equipo de David / proyecto Axis):
 [synergy-code-3/synergy-axis#1](https://github.com/synergy-code-3/synergy-axis/pull/1).
 El portal la detecta solo (`lib/schema.ts`): sin ella, las features de base se ocultan con
