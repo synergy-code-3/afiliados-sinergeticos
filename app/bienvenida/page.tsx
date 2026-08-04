@@ -51,6 +51,7 @@ function prefiereQuieto(): boolean {
 export default function Bienvenida() {
   const router = useRouter();
   const [cargando, setCargando] = useState(true);
+  const [fallo, setFallo] = useState(false);
   const [paso, setPaso] = useState<Paso>(1);
   const [celebrando, setCelebrando] = useState(false);
   const [apodo, setApodo] = useState("");
@@ -80,7 +81,16 @@ export default function Bienvenida() {
         const r = await fetch("/api/perfil");
         const d = (await r.json()) as RespPerfil;
         if (!vivo) return;
-        if (!d.ok || !d.plus || !d.perfil || d.perfil.onboarding_at) {
+        // Solo se regresa a /panel con señales DEFINITIVAS (sin migración,
+        // sin perfil, u onboarding ya hecho): el panel no rebota en esos
+        // casos. Un fallo de red aquí NO manda a /panel — el panel volvería
+        // a mandar para acá y sería un ping-pong infinito de redirects.
+        if (!d.ok) {
+          setFallo(true);
+          setCargando(false);
+          return;
+        }
+        if (!d.plus || !d.perfil || d.perfil.onboarding_at) {
           router.replace("/panel");
           return;
         }
@@ -91,7 +101,10 @@ export default function Bienvenida() {
         }
         setCargando(false);
       } catch {
-        if (vivo) router.replace("/panel");
+        if (vivo) {
+          setFallo(true);
+          setCargando(false);
+        }
       }
     })();
     return () => {
@@ -181,6 +194,30 @@ export default function Bienvenida() {
       setOcupado(false);
       setMsg("Error de conexión. Intenta de nuevo.");
     }
+  }
+
+  if (fallo) {
+    return (
+      <main className="relative">
+        <div className="aurora">
+          <span className="b1" />
+        </div>
+        <div className="wrap relative flex justify-center pb-24 pt-16">
+          <div className="glass a1 w-full max-w-md p-8 text-center">
+            <h1 className="text-2xl font-extrabold">No pudimos cargar tu perfil</h1>
+            <p className="mt-2 text-white/55">
+              Parece un problema de conexión. Intenta de nuevo en un momento.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-cta btn-press mt-6 w-full"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   if (cargando) {

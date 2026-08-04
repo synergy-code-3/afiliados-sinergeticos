@@ -121,7 +121,7 @@ export default function SeccionPremios({ cerrados }: { cerrados: number }) {
                     <div className="p-4 text-left sm:text-center">
                       <p
                         className={`text-[10.5px] font-bold uppercase tracking-[0.14em] tabular ${
-                          logrado ? "text-[#19e16d]" : esActual ? "text-white/80" : "text-white/30"
+                          logrado ? "text-[#19e16d]" : esActual ? "text-white/80" : "text-white/55"
                         }`}
                       >
                         {logrado

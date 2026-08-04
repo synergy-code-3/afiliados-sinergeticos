@@ -8,12 +8,26 @@ export const dynamic = "force-dynamic";
  * (`/api/reconciliar` + cron en vercel.json): lo que se quedó a medias se
  * cura solo, sin esperar a que el afiliado encuentre el botón de reintentar.
  *
- * Reintenta inscripciones sin boleto en `enviando`/`error:` de los últimos
- * 7 días, con al menos 5 minutos de edad (para no pisarse con el alta en
- * vuelo). Máximo 10 por corrida. Nunca emite doble: si ya hay ticket_id,
- * se salta. Si `CRON_SECRET` existe en el entorno, exige el Bearer que
- * Vercel manda en los crons; sin la env, la operación sigue siendo segura
- * (idempotente y sin exponer datos). */
+ * Endurecido tras la revisión adversarial:
+ * - Si `CRON_SECRET` existe en el entorno, se exige el Bearer que Vercel
+ *   manda en los crons. Sin la env la ruta sigue operando, pero acotada:
+ * - Tope de 5 reintentos automáticos por inscripción — el conteo viaja en el
+ *   status (`error(n): detalle`), así que ni un tercero golpeando la ruta en
+ *   bucle puede martillar la boletera sin límite.
+ * - Claim atómico por fila (compare-and-swap sobre el status) antes de
+ *   emitir: dos corridas concurrentes no duplican boletos.
+ * - `enviando` atorado solo se reintenta tras 15 min (el alta en vuelo tarda
+ *   segundos); tras el primer fallo entra al conteo normal de error(n). */
+
+const MAX_REINTENTOS = 5;
+
+const intentosDe = (status: string): number => {
+  if (status === "enviando") return 0;
+  const m = /^error\((\d+)\)/.exec(status);
+  if (m) return Number(m[1]);
+  return status.startsWith("error") ? 1 : 0;
+};
+
 export async function GET(req: Request) {
   const secreto = process.env.CRON_SECRET;
   if (secreto && req.headers.get("authorization") !== `Bearer ${secreto}`) {
@@ -21,16 +35,17 @@ export async function GET(req: Request) {
   }
 
   const service = supabaseService();
-  const hace5min = new Date(Date.now() - 5 * 60_000).toISOString();
+  const hace15min = new Date(Date.now() - 15 * 60_000).toISOString();
   const hace7dias = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
 
   const { data: atoradas, error } = await service
     .from("af_inscripciones")
     .select("id, event_tk_id, nombre, email, telefono, status, ticket_id")
     .is("ticket_id", null)
-    .lt("created_at", hace5min)
+    .lt("created_at", hace15min)
     .gte("created_at", hace7dias)
-    .or("status.eq.enviando,status.like.error:*")
+    // valores propios del sistema, jamás input del usuario dentro del or()
+    .or("status.eq.enviando,status.like.error*")
     .order("created_at", { ascending: true })
     .limit(10)
     .returns<
@@ -50,8 +65,28 @@ export async function GET(req: Request) {
 
   let emitidos = 0;
   let fallas = 0;
+  let saltadas = 0;
   for (const i of atoradas ?? []) {
-    if (i.ticket_id) continue; // jamás doble boleto
+    const intentos = intentosDe(i.status);
+    if (i.ticket_id || intentos >= MAX_REINTENTOS) {
+      saltadas += 1;
+      continue;
+    }
+
+    // claim atómico: solo quien gana el compare-and-swap emite
+    const { data: reclamada } = await service
+      .from("af_inscripciones")
+      .update({ status: "enviando" })
+      .eq("id", i.id)
+      .eq("status", i.status)
+      .is("ticket_id", null)
+      .select("id")
+      .returns<{ id: string }[]>();
+    if (!reclamada || reclamada.length === 0) {
+      saltadas += 1;
+      continue;
+    }
+
     const res = await emitirBoleto({
       eventId: i.event_tk_id,
       nombre: i.nombre,
@@ -68,11 +103,17 @@ export async function GET(req: Request) {
     } else {
       await service
         .from("af_inscripciones")
-        .update({ status: `error: ${res.detalle}` })
+        .update({ status: `error(${intentos + 1}): ${res.detalle}` })
         .eq("id", i.id);
       fallas += 1;
     }
   }
 
-  return NextResponse.json({ ok: true, revisadas: (atoradas ?? []).length, emitidos, fallas });
+  return NextResponse.json({
+    ok: true,
+    revisadas: (atoradas ?? []).length,
+    emitidos,
+    fallas,
+    saltadas,
+  });
 }

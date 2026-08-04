@@ -197,6 +197,9 @@ interface DatosComprador {
   telefono: string | null;
   eventTkId: string | null;
   eventName: string | null;
+  /** geografía del EVENTO según la inscripción — cuando existe, manda sobre
+   * lo que diga el navegador (la geografía define la moneda del dinero) */
+  pais: "MX" | "US" | null;
 }
 
 /** Con inscripción, la base manda: comprador, evento y afiliado salen de ella
@@ -207,7 +210,7 @@ async function datosDeInscripcion(
 ): Promise<{ datos: DatosComprador } | { error: NextResponse }> {
   const { data: insc } = await service
     .from("af_inscripciones")
-    .select("id, afiliado_id, nombre, email, telefono, event_tk_id, event_name")
+    .select("id, afiliado_id, nombre, email, telefono, event_tk_id, event_name, pais")
     .eq("id", inscripcionId)
     .maybeSingle<{
       id: string;
@@ -217,6 +220,7 @@ async function datosDeInscripcion(
       telefono: string | null;
       event_tk_id: string | null;
       event_name: string | null;
+      pais: string | null;
     }>();
   if (!insc) {
     return { error: NextResponse.json({ error: "No encontramos esa inscripción." }, { status: 404 }) };
@@ -243,6 +247,7 @@ async function datosDeInscripcion(
       telefono: insc.telefono,
       eventTkId: insc.event_tk_id,
       eventName: insc.event_name,
+      pais: insc.pais === "US" ? "US" : insc.pais === "MX" ? "MX" : null,
     },
   };
 }
@@ -262,6 +267,7 @@ async function resolverCaptura(
     telefono: body.comprador_telefono?.trim() || null,
     eventTkId: body.event_tk_id?.trim() || null,
     eventName: body.event_name?.trim() || null,
+    pais: null, // captura libre: sin inscripción, la geografía la elige el admin
   };
   if (!datos.afiliadoId) {
     return { error: NextResponse.json({ error: "Falta el afiliado que hizo la venta." }, { status: 400 }) };
@@ -292,13 +298,16 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  const geografia = body.geografia as Geografia;
   const paquete = body.paquete as Paquete;
 
   const service = supabaseService();
   const resuelto = await resolverCaptura(service, body);
   if ("error" in resuelto) return resuelto.error;
   const { datos } = resuelto;
+
+  // Con inscripción, la geografía la define el EVENTO (af_inscripciones.pais)
+  // — regla de David. El valor del navegador solo aplica en captura libre.
+  const geografia: Geografia = datos.pais ?? (body.geografia as Geografia);
 
   const { data: afiliado } = await service
     .from("af_afiliados")

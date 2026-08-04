@@ -142,8 +142,14 @@ export default async function Panel() {
 
     equipo = (miembros ?? []).map((m) => {
       const suyas = (ventasEquipo ?? []).filter((v) => v.afiliado_id === m.id);
+      // jamás se suman monedas distintas: se muestra la moneda dominante
+      // (donde el miembro ha generado más) y SOLO sus centavos
       const porMoneda = sumaPorMoneda(suyas, "comision_cents");
-      const principal = porMoneda[0] ?? { moneda: "MXN", cents: 0 };
+      const principal =
+        porMoneda.reduce<TotalMoneda | null>(
+          (max, f) => (max && max.cents >= f.cents ? max : f),
+          null,
+        ) ?? { moneda: "MXN", cents: 0 };
       return {
         nombre: m.nombre,
         apodo: m.apodo,

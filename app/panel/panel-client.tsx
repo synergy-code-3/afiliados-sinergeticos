@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
@@ -117,6 +117,47 @@ export default function PanelClient({
   const [perfilForm, setPerfilForm] = useState(perfil);
   const [perfilMsg, setPerfilMsg] = useState<{ ok: boolean; texto: string } | null>(null);
   const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  const [fotoActual, setFotoActual] = useState(fotoUrl);
+  const [subiendoFoto, setSubiendoFoto] = useState(false);
+  const [fotoMsg, setFotoMsg] = useState<string | null>(null);
+  const fotoInputRef = useRef<HTMLInputElement>(null);
+
+  /** Sube la foto (la promesa del onboarding: "ponla después desde tu panel").
+   * /api/foto valida bytes y guarda por sesión; luego se fija en el perfil. */
+  async function cambiarFoto(archivo: File) {
+    if (subiendoFoto) return;
+    setFotoMsg(null);
+    setSubiendoFoto(true);
+    try {
+      const fd = new FormData();
+      fd.append("foto", archivo);
+      const r = await fetch("/api/foto", { method: "POST", body: fd });
+      const d = (await r.json()) as { ok?: boolean; url?: string; error?: string };
+      if (!d.ok || !d.url) {
+        setFotoMsg(
+          d.error === "pendiente"
+            ? "Muy pronto podrás subir tu foto — estamos activando esta parte."
+            : d.error ?? "No se pudo subir tu foto. Intenta de nuevo.",
+        );
+      } else {
+        const p = await fetch("/api/perfil", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ foto_url: d.url }),
+        });
+        const pd = (await p.json()) as { ok?: boolean; error?: string };
+        if (pd.ok) {
+          setFotoActual(d.url);
+          router.refresh();
+        } else {
+          setFotoMsg(pd.error ?? "No se pudo guardar tu foto. Intenta de nuevo.");
+        }
+      }
+    } catch {
+      setFotoMsg("Error de conexión. Intenta de nuevo.");
+    }
+    setSubiendoFoto(false);
+  }
 
   useEffect(() => {
     fetch("/api/eventos")
@@ -136,26 +177,21 @@ export default function PanelClient({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return router.push("/entrar");
-    const perfilNuevo = { id: user.id, nombre: nombrePerfil.trim() };
+    await supabase.from("af_afiliados").insert({ id: user.id, nombre: nombrePerfil.trim() });
 
     // Atribución rescatada de /crear-cuenta?ref= (flujo con confirmación de
-    // correo: el insert del perfil corre hasta aquí y el ref viajó en
-    // localStorage — patrón del embudo BGI). Si la columna no existe aún
-    // (migración 0082), se reintenta sin ella: el alta no se bloquea jamás.
-    let referidoPor: string | null = null;
+    // correo: el insert del perfil corre hasta aquí y el CÓDIGO viajó en
+    // localStorage — patrón del embudo BGI). El servidor resuelve el código
+    // (RPC): el navegador jamás decide quién cobra el override. Si la
+    // migración 0082 no está aplicada, falla silencioso.
+    let codigo: string | null = null;
     try {
-      const crudo = localStorage.getItem("synergy_ref");
-      if (crudo) referidoPor = (JSON.parse(crudo) as { id?: string }).id ?? null;
+      codigo = localStorage.getItem("synergy_ref");
     } catch {
-      referidoPor = null;
+      codigo = null;
     }
-    if (referidoPor) {
-      const { error: refErr } = await supabase
-        .from("af_afiliados")
-        .insert({ ...perfilNuevo, referido_por: referidoPor });
-      if (refErr) await supabase.from("af_afiliados").insert(perfilNuevo);
-    } else {
-      await supabase.from("af_afiliados").insert(perfilNuevo);
+    if (codigo && /^[A-Z0-9]{6}$/.test(codigo)) {
+      await supabase.rpc("af_vincular_referido", { p_codigo: codigo });
     }
     try {
       localStorage.removeItem("synergy_ref");
@@ -351,8 +387,8 @@ export default function PanelClient({
             <p className="mt-2 text-white/55">Dinos tu nombre para activar tu cuenta de afiliado.</p>
             <form onSubmit={completarPerfil} className="mt-6 space-y-4">
               <div>
-                <label className="label">Tu nombre</label>
-                <input value={nombrePerfil} onChange={(e) => setNombrePerfil(e.target.value)} placeholder="Nombre completo" className="field" />
+                <label className="label" htmlFor="activa-nombre">Tu nombre</label>
+                <input id="activa-nombre" value={nombrePerfil} onChange={(e) => setNombrePerfil(e.target.value)} placeholder="Nombre completo" className="field" />
               </div>
               <button className="btn-cta btn-press w-full">Activar mi cuenta →</button>
             </form>
@@ -368,10 +404,10 @@ export default function PanelClient({
       <div className="wrap relative pb-24 pt-12">
         <div className="a1 flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            {fotoUrl ? (
+            {fotoActual ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={fotoUrl}
+                src={fotoActual}
                 alt=""
                 className="h-14 w-14 flex-none rounded-full border-2 border-[#19e16d]/40 object-cover"
               />
@@ -418,10 +454,49 @@ export default function PanelClient({
                 Así te ve el equipo de Sinergéticos.
               </p>
             </div>
+            {dbListo ? (
+              <div className="flex items-center gap-4">
+                {fotoActual ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={fotoActual}
+                    alt="Tu foto de perfil"
+                    className="h-16 w-16 flex-none rounded-full border-2 border-[#19e16d]/40 object-cover"
+                  />
+                ) : (
+                  <span className="grid h-16 w-16 flex-none place-items-center rounded-full border-2 border-white/15 text-xl font-extrabold text-[#19e16d]">
+                    {(apodo || nombre).trim().charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <div>
+                  <input
+                    ref={fotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void cambiarFoto(f);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fotoInputRef.current?.click()}
+                    disabled={subiendoFoto}
+                    className="btn-ghost btn-press !px-4 !py-2.5 !text-sm"
+                  >
+                    {subiendoFoto ? "Subiendo…" : fotoActual ? "Cambiar mi foto" : "Subir mi foto"}
+                  </button>
+                  {fotoMsg ? <p className="mt-2 text-sm font-semibold text-[#ffb2b2]">{fotoMsg}</p> : null}
+                </div>
+              </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-3">
               <div>
-                <label className="label">Tu nombre</label>
+                <label className="label" htmlFor="perfil-nombre">Tu nombre</label>
                 <input
+                  id="perfil-nombre"
                   value={perfilForm.nombre}
                   onChange={(e) => setPerfilForm({ ...perfilForm, nombre: e.target.value })}
                   placeholder="Nombre completo"
@@ -429,8 +504,9 @@ export default function PanelClient({
                 />
               </div>
               <div>
-                <label className="label">Tu ciudad · opcional</label>
+                <label className="label" htmlFor="perfil-ciudad">Tu ciudad · opcional</label>
                 <input
+                  id="perfil-ciudad"
                   value={perfilForm.ciudad}
                   onChange={(e) => setPerfilForm({ ...perfilForm, ciudad: e.target.value })}
                   placeholder="¿De dónde eres?"
@@ -438,8 +514,9 @@ export default function PanelClient({
                 />
               </div>
               <div>
-                <label className="label">Tu WhatsApp · opcional</label>
+                <label className="label" htmlFor="perfil-whatsapp">Tu WhatsApp · opcional</label>
                 <input
+                  id="perfil-whatsapp"
                   value={perfilForm.telefono}
                   onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })}
                   inputMode="tel"
@@ -483,8 +560,8 @@ export default function PanelClient({
               <h2 className="text-xl font-bold">Inscribir a alguien</h2>
             </div>
             <div>
-              <label className="label">Evento</label>
-              <select value={eventoId} onChange={(e) => setEventoId(e.target.value)} className="field">
+              <label className="label" htmlFor="inv-evento">Evento</label>
+              <select id="inv-evento" value={eventoId} onChange={(e) => setEventoId(e.target.value)} className="field">
                 <option value="">Elige el evento…</option>
                 {eventos.map((ev) => (
                   <option key={ev.id} value={ev.id}>
@@ -496,22 +573,27 @@ export default function PanelClient({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="label">Nombre del invitado</label>
-                <input value={invNombre} onChange={(e) => setInvNombre(e.target.value)} placeholder="Nombre completo" className="field" />
+                <label className="label" htmlFor="inv-nombre">Nombre del invitado</label>
+                <input id="inv-nombre" value={invNombre} onChange={(e) => setInvNombre(e.target.value)} placeholder="Nombre completo" className="field" />
               </div>
               <div>
-                <label className="label">Correo del invitado · opcional</label>
-                <input value={invEmail} onChange={(e) => setInvEmail(e.target.value)} type="email" placeholder="correo@ejemplo.com" className="field" />
+                <label className="label" htmlFor="inv-correo">Correo del invitado · opcional</label>
+                <input id="inv-correo" value={invEmail} onChange={(e) => setInvEmail(e.target.value)} type="email" placeholder="correo@ejemplo.com" className="field" />
               </div>
             </div>
             <div>
-              <label className="label">WhatsApp del invitado · obligatorio</label>
+              <label className="label" htmlFor="inv-whatsapp">WhatsApp del invitado · obligatorio</label>
               <div className="flex gap-2">
-                <select value={dial} onChange={(e) => setDial(e.target.value)} className="field !w-28">
+                <select
+                  value={dial}
+                  onChange={(e) => setDial(e.target.value)}
+                  className="field !w-28"
+                  aria-label="Lada del país"
+                >
                   <option value="52">🇲🇽 +52</option>
                   <option value="1">🇺🇸 +1</option>
                 </select>
-                <input value={invTel} onChange={(e) => setInvTel(e.target.value)} inputMode="tel" placeholder="10 dígitos" className="field" />
+                <input id="inv-whatsapp" value={invTel} onChange={(e) => setInvTel(e.target.value)} inputMode="tel" placeholder="10 dígitos" className="field" />
               </div>
             </div>
             {msg ? (
@@ -710,16 +792,18 @@ export default function PanelClient({
                             <p className="sec-tag mb-3">Corrigiendo a {i.nombre}</p>
                             <div className="grid gap-3 sm:grid-cols-3">
                               <div>
-                                <label className="label">Nombre</label>
+                                <label className="label" htmlFor="edit-nombre">Nombre</label>
                                 <input
+                                  id="edit-nombre"
                                   value={edit.nombre}
                                   onChange={(e) => setEdit({ ...edit, nombre: e.target.value })}
                                   className="field"
                                 />
                               </div>
                               <div>
-                                <label className="label">Correo</label>
+                                <label className="label" htmlFor="edit-correo">Correo</label>
                                 <input
+                                  id="edit-correo"
                                   value={edit.email}
                                   onChange={(e) => setEdit({ ...edit, email: e.target.value })}
                                   type="email"
@@ -727,8 +811,9 @@ export default function PanelClient({
                                 />
                               </div>
                               <div>
-                                <label className="label">WhatsApp (con lada)</label>
+                                <label className="label" htmlFor="edit-whatsapp">WhatsApp (con lada)</label>
                                 <input
+                                  id="edit-whatsapp"
                                   value={edit.telefono}
                                   onChange={(e) => setEdit({ ...edit, telefono: e.target.value })}
                                   inputMode="tel"

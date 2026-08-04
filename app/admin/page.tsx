@@ -96,14 +96,33 @@ export default async function Admin() {
         .filter((h) => h.referido_por === liderId)
         .map((h): MiembroRed => {
           const suyas = (ventasRef ?? []).filter((v) => v.afiliado_id === h.id);
+          // jamás se suman monedas distintas (en la base conviven MXN y USD):
+          // se reporta la moneda dominante del miembro y SOLO sus centavos
+          const monedas = [...new Set(suyas.map((v) => v.moneda))];
+          const dominante =
+            monedas
+              .map((m) => ({
+                moneda: m,
+                comision: suyas
+                  .filter((v) => v.moneda === m)
+                  .reduce((t, v) => t + Number(v.comision_cents), 0),
+                override: suyas
+                  .filter((v) => v.moneda === m)
+                  .reduce((t, v) => t + Number(v.override_cents), 0),
+              }))
+              .sort((a, b) => b.comision - a.comision)[0] ?? {
+              moneda: "MXN",
+              comision: 0,
+              override: 0,
+            };
           return {
             id: h.id,
             nombre: h.nombre,
             creadoEl: h.created_at,
             ventas: suyas.length,
-            comisionCents: suyas.reduce((t, v) => t + Number(v.comision_cents), 0),
-            overrideCents: suyas.reduce((t, v) => t + Number(v.override_cents), 0),
-            moneda: suyas[0]?.moneda ?? "MXN",
+            comisionCents: dominante.comision,
+            overrideCents: dominante.override,
+            moneda: dominante.moneda,
           };
         }),
     }));

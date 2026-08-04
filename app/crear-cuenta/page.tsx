@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 
-/** Quien invitó (viene de /api/ref cuando la liga trae ?ref=CÓDIGO). */
+/** Quien invitó (viene de /api/ref cuando la liga trae ?ref=CÓDIGO).
+ * Solo el nombre para el banner: la vinculación real la hace la RPC
+ * af_vincular_referido con el CÓDIGO — el navegador nunca maneja ids. */
 interface Referente {
-  id: string;
+  codigo: string;
   nombre: string;
 }
 
@@ -29,13 +31,13 @@ function FormularioCrearCuenta() {
     let vivo = true;
     fetch(`/api/ref?codigo=${refCodigo}`)
       .then((r) => r.json())
-      .then((d: { ok?: boolean; id?: string; nombre?: string }) => {
-        if (vivo && d.ok && d.id && d.nombre) {
-          setReferente({ id: d.id, nombre: d.nombre });
+      .then((d: { ok?: boolean; nombre?: string }) => {
+        if (vivo && d.ok && d.nombre) {
+          setReferente({ codigo: refCodigo, nombre: d.nombre });
           // patrón del embudo BGI: la atribución sobrevive aunque el alta se
           // complete después (confirmación de correo) — el panel la consume
           try {
-            localStorage.setItem("synergy_ref", JSON.stringify({ id: d.id, nombre: d.nombre }));
+            localStorage.setItem("synergy_ref", refCodigo);
           } catch {
             // storage lleno o bloqueado: el banner sigue funcionando igual
           }
@@ -77,15 +79,14 @@ function FormularioCrearCuenta() {
         ciudad: ciudad.trim() || null,
         telefono: telefono.trim() || null,
       };
+      await supabase.from("af_afiliados").insert(perfil);
       if (referente) {
-        // liga con quien lo invitó; si la columna aún no existe (migración
-        // 0082 pendiente) se reintenta sin ella — el alta no se bloquea jamás
-        const { error: refErr } = await supabase
-          .from("af_afiliados")
-          .insert({ ...perfil, referido_por: referente.id });
-        if (refErr) await supabase.from("af_afiliados").insert(perfil);
-      } else {
-        await supabase.from("af_afiliados").insert(perfil);
+        // la vinculación la decide el SERVIDOR: la RPC resuelve el código,
+        // valida que no sea auto-referencia y escribe una sola vez. Si la
+        // migración 0082 no está aplicada, falla silencioso — el alta jamás
+        // se bloquea por esto.
+        // los errores de PostgREST llegan en el valor resuelto, jamás lanzan
+        await supabase.rpc("af_vincular_referido", { p_codigo: referente.codigo });
       }
       try {
         localStorage.removeItem("synergy_ref");
@@ -116,24 +117,24 @@ function FormularioCrearCuenta() {
           ) : null}
           <form onSubmit={crear} className="mt-6 space-y-4">
             <div>
-              <label className="label">Tu nombre</label>
-              <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre completo" className="field" />
+              <label className="label" htmlFor="cc-nombre">Tu nombre</label>
+              <input id="cc-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre completo" className="field" />
             </div>
             <div>
-              <label className="label">Tu ciudad · opcional</label>
-              <input value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="¿De dónde eres?" className="field" />
+              <label className="label" htmlFor="cc-ciudad">Tu ciudad · opcional</label>
+              <input id="cc-ciudad" value={ciudad} onChange={(e) => setCiudad(e.target.value)} placeholder="¿De dónde eres?" className="field" />
             </div>
             <div>
-              <label className="label">Tu WhatsApp · opcional</label>
-              <input value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" placeholder="10 dígitos" className="field" />
+              <label className="label" htmlFor="cc-whatsapp">Tu WhatsApp · opcional</label>
+              <input id="cc-whatsapp" value={telefono} onChange={(e) => setTelefono(e.target.value)} inputMode="tel" placeholder="10 dígitos" className="field" />
             </div>
             <div>
-              <label className="label">Correo</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="tucorreo@ejemplo.com" autoComplete="email" className="field" />
+              <label className="label" htmlFor="cc-correo">Correo</label>
+              <input id="cc-correo" value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="tucorreo@ejemplo.com" autoComplete="email" className="field" />
             </div>
             <div>
-              <label className="label">Contraseña</label>
-              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Mínimo 8 caracteres" autoComplete="new-password" className="field" />
+              <label className="label" htmlFor="cc-password">Contraseña</label>
+              <input id="cc-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Mínimo 8 caracteres" autoComplete="new-password" className="field" />
             </div>
             {msg ? <p className="text-sm font-semibold text-[#ffb2b2]">{msg}</p> : null}
             <button disabled={loading} className="btn-cta btn-press !mt-6 w-full">

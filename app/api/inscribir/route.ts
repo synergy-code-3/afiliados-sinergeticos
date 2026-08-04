@@ -58,8 +58,10 @@ export async function POST(req: NextRequest) {
   if (!eventId || !nombre || !telefono) {
     return NextResponse.json({ error: "Faltan datos del invitado." }, { status: 400 });
   }
-  // el correo es OPCIONAL — el formato solo se revisa si lo escribieron
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // el correo es OPCIONAL — el formato solo se revisa si lo escribieron.
+  // El regex además veta comas/paréntesis: un correo jamás viaja interpolado
+  // a sintaxis de PostgREST, pero tampoco debe PODER ensuciarla.
+  if (email && !/^[^\s@,()]+@[^\s@,()]+\.[^\s@,()]+$/.test(email)) {
     return NextResponse.json({ error: "El correo no se ve válido." }, { status: 400 });
   }
   const telErr = validarTelefono(telefono);
@@ -98,14 +100,31 @@ export async function POST(req: NextRequest) {
 
     // belt extra: ya inscrita por algún afiliado A ESTE MISMO evento.
     // Va acotado al evento a propósito — con la regla nueva, la misma persona
-    // sí puede ir a otro evento distinto.
-    const { count: dupCount } = await service
-      .from("af_inscripciones")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "emitido")
-      .eq("event_tk_id", eventId)
-      .or(`telefono.eq.${telefono},email.eq.${emailFinal}`);
-    if ((dupCount ?? 0) > 0) {
+    // sí puede ir a otro evento distinto. Son DOS conteos con .eq() a
+    // propósito: nada del invitado se interpola jamás dentro de un .or() de
+    // PostgREST (ahí una coma inyecta operadores), y un error de consulta
+    // detiene la inscripción en vez de dejar pasar el duplicado.
+    const [porTelefono, porCorreo] = await Promise.all([
+      service
+        .from("af_inscripciones")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "emitido")
+        .eq("event_tk_id", eventId)
+        .eq("telefono", telefono),
+      service
+        .from("af_inscripciones")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "emitido")
+        .eq("event_tk_id", eventId)
+        .eq("email", emailFinal),
+    ]);
+    if (porTelefono.error || porCorreo.error) {
+      return NextResponse.json(
+        { error: "No se pudo verificar el contacto. Intenta de nuevo." },
+        { status: 500 },
+      );
+    }
+    if ((porTelefono.count ?? 0) + (porCorreo.count ?? 0) > 0) {
       return NextResponse.json(
         { error: "Oops — esta persona ya fue inscrita a este evento 🙈. Puedes invitar a alguien más." },
         { status: 409 },
@@ -126,17 +145,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // La GEOGRAFÍA define la moneda de la comisión, así que la decide el
+  // SERVIDOR con el dato de la boletera (timezone + nombre del evento) — el
+  // valor del body queda solo como respaldo si la boletera no responde.
+  let pais: Pais = body.pais === "US" ? "US" : "MX";
+  let eventName = body.event_name?.trim() ?? "";
+  try {
+    const r = await fetch("https://synergyticket.net/api/events", {
+      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (r.ok) {
+      const eventos = (await r.json()) as { id?: string; name?: string; timezone?: string }[];
+      const ev = (Array.isArray(eventos) ? eventos : []).find((e) => e.id === eventId);
+      if (ev) {
+        pais = paisDeEvento(ev.timezone, ev.name);
+        eventName = ev.name?.trim() || eventName;
+      }
+    }
+  } catch {
+    // la boletera no contestó a tiempo: se usa el respaldo del form
+  }
+
   // atribución primero (queda aunque la ticketera tarde)
   const { data: insc, error: insErr } = await service
     .from("af_inscripciones")
     .insert({
       afiliado_id: user.id,
       event_tk_id: eventId,
-      event_name: body.event_name?.trim() ?? "",
+      event_name: eventName,
       nombre,
       email: emailFinal,
       telefono,
-      pais: (body.pais === "US" ? "US" : "MX") as Pais,
+      pais,
       status: "enviando",
     })
     .select("id")
