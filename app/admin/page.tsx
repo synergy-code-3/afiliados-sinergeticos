@@ -1,8 +1,8 @@
 import { supabaseService } from "@/lib/supabase-server";
-import { esAdmin, esAdminPorCuenta } from "@/lib/admin-auth";
+import { estadoAdmin } from "@/lib/admin-auth";
 import AdminToggle from "./toggle";
 import AdminRecursos from "./recursos";
-import AdminLogin from "./login";
+import SinAcceso from "./sin-acceso";
 import AdminMetricasPanel, { type AdminMetricas } from "./metricas";
 import AdminAdmins, { type Admin } from "./admins";
 
@@ -28,10 +28,9 @@ interface Recurso {
 }
 
 export default async function Admin() {
-  // la llave ya no viaja en la URL: se canjea una vez por cookie firmada
-  if (!(await esAdmin())) return <AdminLogin />;
-
-  const { email: miCorreo } = await esAdminPorCuenta();
+  // acceso SOLO por cuenta: la llave compartida se eliminó
+  const { autenticado, ok, email: miCorreo } = await estadoAdmin();
+  if (!ok) return <SinAcceso autenticado={autenticado} email={miCorreo} />;
   const service = supabaseService();
   const { data: admins } = await service
     .from("af_admins")

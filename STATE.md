@@ -32,6 +32,32 @@ gratuitos y el boleto le llega al invitado por WhatsApp al instante.
 
 ---
 
+## Sesión 15 — 4-ago-2026 — Se eliminó la llave compartida del admin
+
+El acceso al panel es **solo por cuenta**. `AFILIADOS_ADMIN_KEY` ya no se usa en ningún
+lado del código; `/api/admin/login` y la pantalla de la llave se borraron.
+
+**Antes de quitarla se comprobó en el navegador** que el acceso por cuenta funciona:
+Manuel (`jmdeleon@zigma3.com`) inició sesión en `/entrar`, entró a `/admin` sin llave,
+aparece marcado "TÚ" en la lista y no puede quitarse a sí mismo.
+
+⚠️ Ese primer intento pareció un bug del acceso por cuenta y NO lo era: la contraseña
+estaba mal (se dictó de memoria en vez de leerla). Antes de culpar al mecanismo, revisar
+que la credencial sea la correcta.
+
+Nueva pantalla `SinAcceso` distingue dos casos, porque no se arreglan igual:
+- **sin sesión** → "Inicia sesión" con liga a `/entrar`
+- **con sesión pero sin permiso** → "Tu cuenta no tiene acceso", mostrando con qué correo
+  entró, para que pida que lo agreguen
+
+Verificado en producción: `POST /api/admin/login` → **404** (la ruta ya no existe) y
+`/admin` sin sesión muestra "Inicia sesión", no el campo de llave.
+
+La env var `AFILIADOS_ADMIN_KEY` **sigue en Vercel pero ya no la lee nadie** — se puede
+borrar cuando se quiera.
+
+---
+
 ## Sesión 14 — 4-ago-2026 — La cuenta de ejemplo pasa a ser la de Manuel
 
 `jmdeleon@zigma3.com` es ahora **la cuenta con datos de prueba** — es quien va a enseñar
