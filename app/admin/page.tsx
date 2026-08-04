@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { supabaseService } from "@/lib/supabase-server";
 import { estadoAdmin } from "@/lib/admin-auth";
 import AdminToggle from "./toggle";
@@ -93,6 +94,9 @@ export default async function Admin() {
               {totalEmitidos} boletos emitidos
             </p>
           </div>
+          <Link href="/panel" className="btn-ghost btn-press !px-4 !py-2 !text-sm">
+            ← Mi panel
+          </Link>
         </div>
 
         {metricas ? <AdminMetricasPanel m={metricas} /> : null}

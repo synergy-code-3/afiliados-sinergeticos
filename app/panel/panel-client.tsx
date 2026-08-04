@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 import { buildE164, validarTelefono } from "@/lib/phone";
@@ -59,6 +60,7 @@ export default function PanelClient({
   inscripciones,
   recursos,
   metricas,
+  esAdmin,
   perfil,
 }: {
   nombre: string;
@@ -67,6 +69,7 @@ export default function PanelClient({
   inscripciones: Inscripcion[];
   recursos: Recurso[];
   metricas: Metricas | null;
+  esAdmin: boolean;
   perfil: { nombre: string; ciudad: string; telefono: string };
 }) {
   // los premios se ganan por referidos que YA COMPRARON, no por invitados
@@ -328,6 +331,11 @@ export default function PanelClient({
             <p className="mt-1.5 text-white/55">Inscribe a tus invitados y su boleto les llega por WhatsApp.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {esAdmin ? (
+              <Link href="/admin" className="btn-ghost btn-press !px-4 !py-2 !text-sm">
+                Administración
+              </Link>
+            ) : null}
             <button
               onClick={() => {
                 setPerfilForm(perfil);

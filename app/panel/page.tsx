@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { supabaseSession } from "@/lib/supabase-server";
+import { esAdmin } from "@/lib/admin-auth";
 import PanelClient from "./panel-client";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +61,9 @@ export default async function Panel() {
   // Métricas del afiliado. La RPC usa auth.uid() por dentro: nadie puede
   // consultar las de otro. Los ingresos vienen DESGLOSADOS POR MONEDA — en la
   // base conviven 15 monedas y sumarlas daría un número sin significado.
+  // para mostrarle el acceso al panel de administración si le toca
+  const admin = await esAdmin();
+
   const { data: metricasRaw } = await supabase.rpc("mis_metricas");
   const metricas = (metricasRaw ?? null) as Metricas | null;
 
@@ -78,6 +82,7 @@ export default async function Panel() {
       inscripciones={inscripciones ?? []}
       recursos={recursos ?? []}
       metricas={metricas}
+      esAdmin={admin}
       perfil={{
         nombre: perfil?.nombre ?? "",
         ciudad: perfil?.ciudad ?? "",

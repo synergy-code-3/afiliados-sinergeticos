@@ -32,6 +32,17 @@ gratuitos y el boleto le llega al invitado por WhatsApp al instante.
 
 ---
 
+## Sesión 16 — 4-ago-2026 — Navegación entre panel y administración
+
+Antes había que escribir `/admin` a mano. Ahora:
+- **En `/panel`**: botón **"Administración"**, visible SOLO si la cuenta está en
+  `af_admins`. Un afiliado normal no lo ve.
+- **En `/admin`**: botón **"← Mi panel"** para volver.
+
+Verificado en producción con la cuenta de Manuel: ida y vuelta funcionando.
+
+---
+
 ## Sesión 15 — 4-ago-2026 — Se eliminó la llave compartida del admin
 
 El acceso al panel es **solo por cuenta**. `AFILIADOS_ADMIN_KEY` ya no se usa en ningún
