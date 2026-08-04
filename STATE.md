@@ -32,6 +32,30 @@ gratuitos y el boleto le llega al invitado por WhatsApp al instante.
 
 ---
 
+## Sesión 17 — 4-ago-2026 — Los premios, rediseñados como una ruta
+
+David: "que se vea gamificado y aspiracional". Feedback **de gusto**, así que NO se
+respondió con cosmética (tonos, sombras, radios) — se cambió la **estructura**, que es lo
+que producía la sensación de plano: eran 4 tarjetas iguales una junto a otra, sin
+recorrido ni jerarquía, y 4 barras cortadas nunca cuentan un avance.
+
+Se presentaron 2 opciones estructurales lado a lado
+([artifact](https://claude.ai/code/artifact/572c9c6e-ec65-4daa-82d7-48b6dcee5882)) y
+David eligió **A · la ruta**: un solo camino con los 4 premios encima y el avance como
+línea continua. Nodo logrado en verde con palomita, el actual con anillo que late, los
+lejanos atenuados.
+
+**La barra camina DE NODO A NODO, no de cero.** Los nodos caen en el centro de su columna
+(12.5% · 37.5% · 62.5% · 87.5%); si midiera `cerrados/meta-final`, con 12 de 100 se vería
+casi vacía aunque ya se ganó el primer premio. Verificado: 10→12.5%, 20→37.5%, 50→62.5%,
+100→100%, aterrizando exacto en cada nodo.
+
+En móvil el carril desaparece y la escalera se lee como lista vertical.
+Acabados aplicados: sombra tintada al ambiente, bisel de luz en el nodo logrado, barrido
+diagonal sobre el vidrio. Respeta `prefers-reduced-motion`.
+
+---
+
 ## Sesión 16 — 4-ago-2026 — Navegación entre panel y administración
 
 Antes había que escribir `/admin` a mano. Ahora:

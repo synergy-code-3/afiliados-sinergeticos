@@ -74,6 +74,25 @@ export default function PanelClient({
 }) {
   // los premios se ganan por referidos que YA COMPRARON, no por invitados
   const cerrados = metricas?.cerrados ?? 0;
+  const siguientePremio = PREMIOS.find((p) => cerrados < p.meta);
+  const faltanPara = siguientePremio ? siguientePremio.meta - cerrados : 0;
+
+  /** Hasta dónde llega la barra de la ruta, en %.
+   *
+   * Los nodos caen en el centro de su columna, así que la barra tiene que
+   * caminar DE NODO A NODO — no de cero. Si midiera cerrados/meta-final, con
+   * 12 de 100 se vería casi vacía aunque ya se ganó el primer premio. */
+  const avanceRuta = (() => {
+    const n = PREMIOS.length;
+    const centro = (i: number) => ((i + 0.5) / n) * 100;
+    const idx = PREMIOS.findIndex((p) => cerrados < p.meta);
+    if (idx === -1) return 100; // los ganó todos
+    const metaAnterior = idx === 0 ? 0 : PREMIOS[idx - 1].meta;
+    const desde = idx === 0 ? 0 : centro(idx - 1);
+    const tramo = PREMIOS[idx].meta - metaAnterior;
+    const recorrido = tramo > 0 ? (cerrados - metaAnterior) / tramo : 0;
+    return desde + Math.max(0, Math.min(1, recorrido)) * (centro(idx) - desde);
+  })();
   const ingresos = metricas?.ingresos ?? [];
   const dinero = (cents: number, moneda: string) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: moneda }).format(cents / 100);
@@ -501,51 +520,99 @@ export default function PanelClient({
           <section className="a3 mt-12">
             <p className="sec-tag mb-1">Tus premios</p>
             <h2 className="text-xl font-bold">
-              {(() => {
-                const siguiente = PREMIOS.find((p) => cerrados < p.meta);
-                if (!siguiente) return "Ganaste todos los premios";
-                const faltan = siguiente.meta - cerrados;
-                return `Te ${faltan === 1 ? "falta" : "faltan"} ${faltan} para tu siguiente premio`;
-              })()}
+              {siguientePremio
+                ? `Vas por ${siguientePremio.premio}`
+                : "Ganaste todos los premios"}
             </h2>
             <p className="mt-1 text-sm text-white/55">
-              Llevas{" "}
-              <span className="font-bold text-[#19e16d]">
-                {cerrados} {cerrados === 1 ? "referido" : "referidos"}
-              </span>{" "}
-              que ya compraron. Los premios se ganan por invitados que compran, no solo por
-              inscribirlos.
+              {siguientePremio ? (
+                <>
+                  Te {faltanPara === 1 ? "falta" : "faltan"}{" "}
+                  <span className="font-bold text-[#19e16d]">
+                    {faltanPara} {faltanPara === 1 ? "persona" : "personas"}
+                  </span>{" "}
+                  que compren para ganártelo. Los premios se ganan por invitados que compran,
+                  no solo por inscribirlos.
+                </>
+              ) : (
+                "Llegaste al último nivel de la escalera."
+              )}
             </p>
 
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {PREMIOS.map((p) => {
-                const logrado = cerrados >= p.meta;
-                const avance = Math.min(100, Math.round((cerrados / p.meta) * 100));
-                return (
-                  <div
-                    key={p.meta}
-                    className={`glass p-5 ${logrado ? "ring-1 ring-[#19e16d]/40" : ""}`}
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="text-2xl font-extrabold tabular">{p.meta}</p>
-                      <span
-                        className={`text-[11px] font-bold uppercase tracking-[0.14em] ${
-                          logrado ? "text-[#19e16d]" : "text-white/40"
-                        }`}
-                      >
-                        {logrado ? "Logrado" : `${cerrados}/${p.meta}`}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm font-semibold leading-snug">{p.premio}</p>
-                    <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className="glass ruta mt-6 p-7 sm:p-8">
+              <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
+                <p className="text-sm text-white/55">Tu avance por la escalera</p>
+                <div className="text-right">
+                  <p className="text-3xl font-extrabold leading-none tabular">{cerrados}</p>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white/35">
+                    ya compraron
+                  </p>
+                </div>
+              </div>
+
+              <div className="relative pt-2">
+                {/* el carril y el avance solo existen en horizontal; en móvil la
+                    escalera se lee como lista y sobran */}
+                <div className="ruta-carril" aria-hidden="true" />
+                <div className="ruta-avance" style={{ width: `${avanceRuta}%` }} aria-hidden="true" />
+
+                <div className="relative grid gap-6 sm:grid-cols-4 sm:gap-3">
+                  {PREMIOS.map((p) => {
+                    const logrado = cerrados >= p.meta;
+                    const esActual = siguientePremio?.meta === p.meta;
+                    return (
                       <div
-                        className="h-full rounded-full bg-[#19e16d] transition-all"
-                        style={{ width: `${avance}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                        key={p.meta}
+                        className="flex items-center gap-4 text-left sm:flex-col sm:gap-3 sm:text-center"
+                      >
+                        <div
+                          className={`ruta-nodo ${
+                            logrado ? "es-logrado" : esActual ? "es-actual" : "es-futuro"
+                          }`}
+                        >
+                          {logrado ? (
+                            <svg
+                              width="22"
+                              height="22"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="3.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M20 6 9 17l-5-5" />
+                            </svg>
+                          ) : (
+                            p.meta
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p
+                            className={`text-[10.5px] font-bold uppercase tracking-[0.14em] tabular ${
+                              logrado
+                                ? "text-[#19e16d]"
+                                : esActual
+                                  ? "text-white/80"
+                                  : "text-white/30"
+                            }`}
+                          >
+                            {logrado ? `${p.meta} · logrado` : `${cerrados} de ${p.meta}`}
+                          </p>
+                          <p
+                            className={`mt-1.5 text-sm font-bold leading-snug ${
+                              logrado || esActual ? "text-white" : "text-white/35"
+                            }`}
+                          >
+                            {p.premio}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </section>
         ) : null}
