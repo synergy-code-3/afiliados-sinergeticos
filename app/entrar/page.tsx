@@ -54,6 +54,10 @@ export default function Entrar() {
             ¿No tienes cuenta?{" "}
             <Link href="/crear-cuenta" className="font-semibold text-[#19e16d] hover:underline">Créala aquí</Link>
           </p>
+          <p className="mt-2 text-sm text-white/50">
+            ¿Olvidaste tu contraseña?{" "}
+            <Link href="/recuperar" className="font-semibold text-[#19e16d] hover:underline">Recupérala aquí</Link>
+          </p>
         </div>
       </div>
     </main>

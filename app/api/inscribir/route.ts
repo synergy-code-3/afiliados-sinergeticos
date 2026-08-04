@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseService } from "@/lib/supabase-server";
 import { validarTelefono } from "@/lib/phone";
+import { emitirBoleto } from "@/lib/boletera";
+import { paisDeEvento, type Pais } from "@/lib/pais";
 
 /** WhatsApps de prueba (David): pasan el candado aunque ya estén en la base. */
 const TELEFONOS_PRUEBA = ["+525513893229"];
@@ -12,6 +14,7 @@ interface Body {
   nombre?: string;
   email?: string;
   telefono?: string; // E.164 armado por el form
+  pais?: string; // "MX" | "US" — lo manda el form desde /api/eventos
 }
 
 /** Inscribe a un invitado: crea su boleto GRATIS en la boletera vía la API
@@ -65,31 +68,40 @@ export async function POST(req: NextRequest) {
   const esPrueba = TELEFONOS_PRUEBA.includes(telefono);
 
   if (!esPrueba) {
-    // candado: si la persona ya está en la base de Sinergéticos, no se puede
-    // inscribir — los afiliados solo traen contactos NUEVOS
-    const { data: yaEnBase, error: rpcErr } = await service.rpc("persona_en_base", {
+    // Candado (regla nueva, 3-ago-2026): estar en la base ya NO basta para
+    // vetar a alguien. Solo detienen la inscripción dos cosas:
+    //   1. que ya esté registrado A ESTE evento, o
+    //   2. que nos haya comprado antes.
+    const { data: bloqueada, error: rpcErr } = await service.rpc("persona_bloqueada", {
       p_email: email,
       p_telefono: telefono,
+      p_event_tk_id: eventId,
     });
     if (rpcErr) {
       return NextResponse.json({ error: "No se pudo verificar el contacto. Intenta de nuevo." }, { status: 500 });
     }
-    if (yaEnBase) {
+    if (bloqueada) {
       return NextResponse.json(
-        { error: "Esa persona ya está registrada en nuestra base — solo puedes inscribir contactos nuevos." },
+        {
+          error:
+            "Esa persona ya está registrada a este evento o ya es cliente nuestro. Puedes inscribirla a otro evento.",
+        },
         { status: 409 },
       );
     }
 
-    // belt extra: ya inscrita por algún afiliado con boleto emitido
+    // belt extra: ya inscrita por algún afiliado A ESTE MISMO evento.
+    // Va acotado al evento a propósito — con la regla nueva, la misma persona
+    // sí puede ir a otro evento distinto.
     const { count: dupCount } = await service
       .from("af_inscripciones")
       .select("id", { count: "exact", head: true })
       .eq("status", "emitido")
+      .eq("event_tk_id", eventId)
       .or(`telefono.eq.${telefono},email.eq.${email}`);
     if ((dupCount ?? 0) > 0) {
       return NextResponse.json(
-        { error: "Esa persona ya fue inscrita por un afiliado." },
+        { error: "Esa persona ya fue inscrita a este evento por un afiliado." },
         { status: 409 },
       );
     }
@@ -118,6 +130,7 @@ export async function POST(req: NextRequest) {
       nombre,
       email,
       telefono,
+      pais: (body.pais === "US" ? "US" : "MX") as Pais,
       status: "enviando",
     })
     .select("id")
@@ -127,44 +140,25 @@ export async function POST(req: NextRequest) {
   }
 
   // boleto GRATIS vía la API interna de la boletera
-  const ticketKey = process.env.SYNERGYTICKET_INTERNAL_API_KEY ?? "";
-  try {
-    const r = await fetch("https://synergyticket.net/api/internal/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${ticketKey}` },
-      body: JSON.stringify({
-        event_id: eventId,
-        name: nombre,
-        email,
-        phone: telefono,
-        lead_id: insc.id,
-        ticket_type: "free",
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!r.ok) {
-      const detalle = await r.text();
-      await service
-        .from("af_inscripciones")
-        .update({ status: `error: ${String(detalle).slice(0, 120)}` })
-        .eq("id", insc.id);
-      return NextResponse.json(
-        { error: "La boletera no pudo emitir el boleto. Intenta de nuevo en un momento." },
-        { status: 502 },
-      );
-    }
-    const data = (await r.json().catch(() => ({}))) as { id?: string; ticket?: { id?: string } };
-    const ticketId = data.ticket?.id ?? data.id ?? null;
+  const res = await emitirBoleto({ eventId, nombre, email, telefono, leadId: insc.id });
+  if (!res.ok) {
     await service
       .from("af_inscripciones")
-      .update({ status: "emitido", ticket_id: ticketId })
+      .update({ status: `error: ${res.detalle}` })
       .eq("id", insc.id);
-    return NextResponse.json({ ok: true, inscripcion_id: insc.id });
-  } catch {
-    await service.from("af_inscripciones").update({ status: "error: timeout" }).eq("id", insc.id);
     return NextResponse.json(
-      { error: "La boletera tardó demasiado. Intenta de nuevo." },
-      { status: 504 },
+      {
+        error:
+          res.status === 504
+            ? "La boletera tardó demasiado. Puedes reintentarlo desde tu lista de inscritos."
+            : "La boletera no pudo emitir el boleto. Puedes reintentarlo desde tu lista de inscritos.",
+      },
+      { status: res.status },
     );
   }
+  await service
+    .from("af_inscripciones")
+    .update({ status: "emitido", ticket_id: res.ticketId })
+    .eq("id", insc.id);
+  return NextResponse.json({ ok: true, inscripcion_id: insc.id });
 }

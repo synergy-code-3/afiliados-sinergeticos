@@ -1,11 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseService } from "@/lib/supabase-server";
+import { esAdmin } from "@/lib/admin-auth";
 
 export async function POST(req: NextRequest) {
-  const { id, activo, k } = (await req.json()) as { id?: string; activo?: boolean; k?: string };
-  if (!k || k !== process.env.AFILIADOS_ADMIN_KEY) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  if (!(await esAdmin())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const { id, activo } = (await req.json()) as { id?: string; activo?: boolean };
   if (!id || typeof activo !== "boolean") {
     return NextResponse.json({ error: "Faltan datos" }, { status: 400 });
   }

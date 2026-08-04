@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { paisDeEvento } from "@/lib/pais";
 
 export const revalidate = 300;
 
@@ -32,6 +33,13 @@ export async function GET() {
       return Number.isFinite(d) && d > ahora;
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .map((e) => ({ id: e.id, name: e.name, date: e.date, venue: e.venue ?? "" }));
+    .map((e) => ({
+      id: e.id,
+      name: e.name,
+      date: e.date,
+      venue: e.venue ?? "",
+      // pesos si el evento es en México, dólares si es en EE. UU.
+      pais: paisDeEvento(e.timezone, e.name),
+    }));
   return NextResponse.json({ eventos });
 }

@@ -1,0 +1,7 @@
+# El build local NO se sube: si .next/ viaja en el upload, Vercel pierde la
+# raíz del proyecto, se inventa un script `vercel-build` y compila vacío
+# (solo `Route (pages) ─ ○ /404`) → producción responde 404 en todo.
+.next
+node_modules
+capturas
+branding

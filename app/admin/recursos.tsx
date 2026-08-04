@@ -12,7 +12,7 @@ interface Recurso {
   activo: boolean;
 }
 
-export default function AdminRecursos({ recursos, k }: { recursos: Recurso[]; k: string }) {
+export default function AdminRecursos({ recursos }: { recursos: Recurso[] }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -24,7 +24,6 @@ export default function AdminRecursos({ recursos, k }: { recursos: Recurso[]; k:
     setMsg(null);
     setLoading(true);
     const fd = new FormData(e.currentTarget);
-    fd.set("k", k);
     try {
       const r = await fetch("/api/admin/recursos", { method: "POST", body: fd });
       const data = (await r.json()) as { ok?: boolean; error?: string };
@@ -45,7 +44,7 @@ export default function AdminRecursos({ recursos, k }: { recursos: Recurso[]; k:
     await fetch("/api/admin/recursos", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, k }),
+      body: JSON.stringify({ id }),
     });
     router.refresh();
   }

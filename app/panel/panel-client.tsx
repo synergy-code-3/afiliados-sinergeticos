@@ -4,12 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 import { buildE164, validarTelefono } from "@/lib/phone";
+import { ligaBoleto, estadoLegible } from "@/lib/boleto-ui";
+import { construirCsv, descargarCsv } from "@/lib/csv";
+import type { Metricas } from "./page";
 
 interface Evento {
   id: string;
   name: string;
   date: string;
   venue: string;
+  /** "MX" | "US" — decide si el afiliado ve pesos o dólares */
+  pais: string;
 }
 
 interface Inscripcion {
@@ -19,6 +24,7 @@ interface Inscripcion {
   email: string;
   telefono: string;
   status: string;
+  ticket_id: string | null;
   created_at: string;
 }
 
@@ -29,6 +35,15 @@ interface Recurso {
   url: string;
   tipo: string;
 }
+
+/** Escalera de premios (confirmada por David, junta 3-ago-2026).
+ * Se gana por referidos que YA PAGARON, no por invitados. */
+const PREMIOS = [
+  { meta: 10, premio: "Renovación del Club Sinergético" },
+  { meta: 20, premio: "Pase Black a Synergy Unlimited" },
+  { meta: 50, premio: "Viaje todo pagado con Jorge Serratos a Nueva York" },
+  { meta: 100, premio: "Programa Mastermind + 3 boletos VIP" },
+] as const;
 
 const TIPO_LABEL: Record<string, string> = {
   imagen: "Imagen",
@@ -43,13 +58,22 @@ export default function PanelClient({
   sinPerfil,
   inscripciones,
   recursos,
+  metricas,
+  perfil,
 }: {
   nombre: string;
   activo: boolean;
   sinPerfil: boolean;
   inscripciones: Inscripcion[];
   recursos: Recurso[];
+  metricas: Metricas | null;
+  perfil: { nombre: string; ciudad: string; telefono: string };
 }) {
+  // los premios se ganan por referidos que YA COMPRARON, no por invitados
+  const cerrados = metricas?.cerrados ?? 0;
+  const ingresos = metricas?.ingresos ?? [];
+  const dinero = (cents: number, moneda: string) =>
+    new Intl.NumberFormat("es-MX", { style: "currency", currency: moneda }).format(cents / 100);
   const router = useRouter();
   const [eventos, setEventos] = useState<Evento[]>([]);
   const [eventoId, setEventoId] = useState("");
@@ -60,6 +84,16 @@ export default function PanelClient({
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [nombrePerfil, setNombrePerfil] = useState("");
+  const [copiado, setCopiado] = useState<string | null>(null);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [edit, setEdit] = useState({ nombre: "", email: "", telefono: "" });
+  const [editMsg, setEditMsg] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [editPerfil, setEditPerfil] = useState(false);
+  const [perfilForm, setPerfilForm] = useState(perfil);
+  const [perfilMsg, setPerfilMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false);
 
   useEffect(() => {
     fetch("/api/eventos")
@@ -104,6 +138,7 @@ export default function PanelClient({
           nombre: invNombre.trim(),
           email: invEmail.trim(),
           telefono: e164,
+          pais: evento.pais,
         }),
       });
       const data = (await r.json()) as { ok?: boolean; error?: string };
@@ -125,9 +160,131 @@ export default function PanelClient({
     setLoading(false);
   }
 
+  async function guardarPerfil(e: React.FormEvent) {
+    e.preventDefault();
+    if (guardandoPerfil) return;
+    setPerfilMsg(null);
+    setGuardandoPerfil(true);
+    try {
+      const r = await fetch("/api/perfil", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(perfilForm),
+      });
+      const data = (await r.json()) as { ok?: boolean; error?: string };
+      if (!r.ok || !data.ok) {
+        setPerfilMsg({ ok: false, texto: data.error ?? "No se pudo guardar." });
+      } else {
+        setPerfilMsg({ ok: true, texto: "Perfil actualizado." });
+        setEditPerfil(false);
+        router.refresh();
+      }
+    } catch {
+      setPerfilMsg({ ok: false, texto: "Error de conexión. Intenta de nuevo." });
+    }
+    setGuardandoPerfil(false);
+  }
+
   async function salir() {
     await supabaseBrowser().auth.signOut();
     router.push("/");
+  }
+
+  async function copiarLiga(i: Inscripcion) {
+    if (!i.ticket_id) return;
+    const liga = ligaBoleto(i.ticket_id);
+    try {
+      await navigator.clipboard.writeText(liga);
+    } catch {
+      // navegadores sin permiso de portapapeles (o http): fallback manual
+      const ta = document.createElement("textarea");
+      ta.value = liga;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopiado(i.id);
+    setTimeout(() => setCopiado((actual) => (actual === i.id ? null : actual)), 2000);
+  }
+
+  function abrirEdicion(i: Inscripcion) {
+    setEditando(i.id);
+    setEditMsg(null);
+    setAviso(null);
+    setEdit({ nombre: i.nombre, email: i.email, telefono: i.telefono });
+  }
+
+  async function guardarEdicion(i: Inscripcion) {
+    if (ocupado) return;
+    setEditMsg(null);
+    const telErr = validarTelefono(edit.telefono.trim());
+    if (telErr) return setEditMsg(telErr);
+    setOcupado(i.id);
+    try {
+      const r = await fetch(`/api/inscripciones/${i.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(edit),
+      });
+      const data = (await r.json()) as { ok?: boolean; error?: string; boletoYaEmitido?: boolean };
+      if (!r.ok || !data.ok) {
+        setEditMsg(data.error ?? "No se pudo guardar.");
+      } else {
+        setEditando(null);
+        setAviso({
+          ok: true,
+          texto: data.boletoYaEmitido
+            ? "Datos corregidos. El boleto ya emitido conserva los datos anteriores, pero sigue siendo válido — mándaselo con “Copiar liga”."
+            : "Datos corregidos.",
+        });
+        router.refresh();
+      }
+    } catch {
+      setEditMsg("Error de conexión. Intenta de nuevo.");
+    }
+    setOcupado(null);
+  }
+
+  async function reintentar(i: Inscripcion) {
+    if (ocupado) return;
+    setAviso(null);
+    setOcupado(i.id);
+    try {
+      const r = await fetch(`/api/inscripciones/${i.id}`, { method: "POST" });
+      const data = (await r.json()) as { ok?: boolean; error?: string };
+      setAviso(
+        r.ok && data.ok
+          ? { ok: true, texto: `Listo — el boleto de ${i.nombre} ya se emitió.` }
+          : { ok: false, texto: data.error ?? "No se pudo emitir." },
+      );
+      if (r.ok && data.ok) router.refresh();
+    } catch {
+      setAviso({ ok: false, texto: "Error de conexión. Intenta de nuevo." });
+    }
+    setOcupado(null);
+  }
+
+  function exportar() {
+    const csv = construirCsv(
+      ["Invitado", "Correo", "WhatsApp", "Evento", "Estado", "Fecha", "Liga del boleto"],
+      inscripciones.map((i) => [
+        i.nombre,
+        i.email,
+        i.telefono,
+        i.event_name,
+        estadoLegible(i.status).texto,
+        new Date(i.created_at).toLocaleDateString("es-MX", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        }),
+        i.ticket_id ? ligaBoleto(i.ticket_id) : "",
+      ]),
+    );
+    descargarCsv("mis-inscritos", csv);
   }
 
   function compartirWa(r: Recurso) {
@@ -170,10 +327,85 @@ export default function PanelClient({
             <h1 className="text-3xl font-extrabold">Hola, {nombre.split(" ")[0]}</h1>
             <p className="mt-1.5 text-white/55">Inscribe a tus invitados y su boleto les llega por WhatsApp.</p>
           </div>
-          <button onClick={salir} className="btn-ghost btn-press !px-4 !py-2 !text-sm">
-            Salir
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => {
+                setPerfilForm(perfil);
+                setPerfilMsg(null);
+                setEditPerfil((v) => !v);
+              }}
+              className="btn-ghost btn-press !px-4 !py-2 !text-sm"
+            >
+              Mi perfil
+            </button>
+            <button onClick={salir} className="btn-ghost btn-press !px-4 !py-2 !text-sm">
+              Salir
+            </button>
+          </div>
         </div>
+
+        {editPerfil ? (
+          <form onSubmit={guardarPerfil} className="glass a2 mt-8 space-y-4 p-6 sm:p-7">
+            <div>
+              <p className="sec-tag mb-1">Tus datos</p>
+              <h2 className="text-xl font-bold">Mi perfil</h2>
+              <p className="mt-1 text-sm text-white/55">
+                Así te ve el equipo de Sinergéticos.
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <label className="label">Tu nombre</label>
+                <input
+                  value={perfilForm.nombre}
+                  onChange={(e) => setPerfilForm({ ...perfilForm, nombre: e.target.value })}
+                  placeholder="Nombre completo"
+                  className="field"
+                />
+              </div>
+              <div>
+                <label className="label">Tu ciudad · opcional</label>
+                <input
+                  value={perfilForm.ciudad}
+                  onChange={(e) => setPerfilForm({ ...perfilForm, ciudad: e.target.value })}
+                  placeholder="¿De dónde eres?"
+                  className="field"
+                />
+              </div>
+              <div>
+                <label className="label">Tu WhatsApp · opcional</label>
+                <input
+                  value={perfilForm.telefono}
+                  onChange={(e) => setPerfilForm({ ...perfilForm, telefono: e.target.value })}
+                  inputMode="tel"
+                  placeholder="+52..."
+                  className="field"
+                />
+              </div>
+            </div>
+            {perfilMsg ? (
+              <p
+                className={`text-sm font-semibold ${
+                  perfilMsg.ok ? "text-[#19e16d]" : "text-[#ffb2b2]"
+                }`}
+              >
+                {perfilMsg.texto}
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-3 !mt-6">
+              <button disabled={guardandoPerfil} className="btn-cta btn-press !px-5 !py-2.5 !text-sm">
+                {guardandoPerfil ? "Guardando…" : "Guardar cambios"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditPerfil(false)}
+                className="btn-ghost btn-press !px-5 !py-2.5 !text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        ) : null}
 
         {!activo ? (
           <div className="a2 mt-8 rounded-xl border border-[#ffb2b2]/40 bg-[#ffb2b2]/10 p-4 text-sm text-[#ffb2b2]">
@@ -226,6 +458,90 @@ export default function PanelClient({
           </form>
         )}
 
+        {ingresos.length > 0 ? (
+          <section className="a3 mt-12">
+            <p className="sec-tag mb-1">Lo que has generado</p>
+            <h2 className="text-xl font-bold">Ventas de tus referidos</h2>
+            <p className="mt-1 text-sm text-white/55">
+              Lo que compraron las personas que tú inscribiste, desde que las inscribiste.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {ingresos.map((ing) => (
+                <div key={ing.moneda} className="glass p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
+                    Histórico · {ing.moneda}
+                  </p>
+                  <p className="mt-1 text-2xl font-extrabold tabular">
+                    {dinero(Number(ing.total_cents), ing.moneda)}
+                  </p>
+                  <p className="mt-3 text-sm text-white/55">
+                    Este mes:{" "}
+                    <span className="font-bold text-white/80">
+                      {dinero(Number(ing.mes_cents ?? 0), ing.moneda)}
+                    </span>
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-white/40">
+              Son las ventas generadas, no tu comisión — el porcentaje se aplica aparte.
+            </p>
+          </section>
+        ) : null}
+
+        {activo ? (
+          <section className="a3 mt-12">
+            <p className="sec-tag mb-1">Tus premios</p>
+            <h2 className="text-xl font-bold">
+              {(() => {
+                const siguiente = PREMIOS.find((p) => cerrados < p.meta);
+                if (!siguiente) return "Ganaste todos los premios";
+                const faltan = siguiente.meta - cerrados;
+                return `Te ${faltan === 1 ? "falta" : "faltan"} ${faltan} para tu siguiente premio`;
+              })()}
+            </h2>
+            <p className="mt-1 text-sm text-white/55">
+              Llevas{" "}
+              <span className="font-bold text-[#19e16d]">
+                {cerrados} {cerrados === 1 ? "referido" : "referidos"}
+              </span>{" "}
+              que ya compraron. Los premios se ganan por invitados que compran, no solo por
+              inscribirlos.
+            </p>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {PREMIOS.map((p) => {
+                const logrado = cerrados >= p.meta;
+                const avance = Math.min(100, Math.round((cerrados / p.meta) * 100));
+                return (
+                  <div
+                    key={p.meta}
+                    className={`glass p-5 ${logrado ? "ring-1 ring-[#19e16d]/40" : ""}`}
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="text-2xl font-extrabold tabular">{p.meta}</p>
+                      <span
+                        className={`text-[11px] font-bold uppercase tracking-[0.14em] ${
+                          logrado ? "text-[#19e16d]" : "text-white/40"
+                        }`}
+                      >
+                        {logrado ? "Logrado" : `${cerrados}/${p.meta}`}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm font-semibold leading-snug">{p.premio}</p>
+                    <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full bg-[#19e16d] transition-all"
+                        style={{ width: `${avance}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
         {recursos.length > 0 ? (
           <section className="a3 mt-12">
             <p className="sec-tag mb-1">Material para compartir</p>
@@ -261,8 +577,42 @@ export default function PanelClient({
         ) : null}
 
         <section className="a4 mt-12">
-          <p className="sec-tag mb-1">Tu conteo</p>
-          <h2 className="text-xl font-bold">Mis inscritos ({inscripciones.length})</h2>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="sec-tag mb-1">Tu conteo</p>
+              <h2 className="text-xl font-bold">Mis inscritos ({inscripciones.length})</h2>
+            </div>
+            {inscripciones.length > 0 ? (
+              <button onClick={exportar} className="btn-ghost btn-press !px-4 !py-2 !text-sm">
+                Descargar CSV
+              </button>
+            ) : null}
+          </div>
+
+          {inscripciones.length > 0 ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+              {[
+                ["Invitados", inscripciones.length],
+                ["Con boleto", inscripciones.filter((i) => i.status === "emitido").length],
+                ["Pendientes", inscripciones.filter((i) => i.status !== "emitido").length],
+                ["Ya compraron", cerrados],
+              ].map(([etiqueta, valor]) => (
+                <div key={String(etiqueta)} className="glass px-5 py-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
+                    {etiqueta}
+                  </p>
+                  <p className="mt-1 text-2xl font-extrabold tabular">{valor}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {aviso ? (
+            <p
+              className={`mt-3 text-sm font-semibold ${aviso.ok ? "text-[#19e16d]" : "text-[#ffb2b2]"}`}
+            >
+              {aviso.texto}
+            </p>
+          ) : null}
           {inscripciones.length === 0 ? (
             <p className="mt-2 text-sm text-white/45">Aún no inscribes a nadie.</p>
           ) : (
@@ -274,21 +624,125 @@ export default function PanelClient({
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em]">Evento</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em]">WhatsApp</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em]">Estado</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em]">Boleto</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {inscripciones.map((i) => (
-                    <tr key={i.id} className="border-t border-white/[0.06]">
-                      <td className="px-4 py-3 font-semibold">{i.nombre}</td>
-                      <td className="px-4 py-3 text-white/60">{i.event_name}</td>
-                      <td className="px-4 py-3 tabular text-white/60">{i.telefono}</td>
-                      <td className="px-4 py-3">
-                        <span className={i.status === "emitido" ? "font-semibold text-[#19e16d]" : "text-[#ffd28a]"}>
-                          {i.status === "emitido" ? "Boleto enviado" : i.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {inscripciones.map((i) => {
+                    const estado = estadoLegible(i.status);
+                    if (editando === i.id) {
+                      return (
+                        <tr key={i.id} className="border-t border-white/[0.06] bg-white/[0.02]">
+                          <td colSpan={5} className="px-4 py-5">
+                            <p className="sec-tag mb-3">Corrigiendo a {i.nombre}</p>
+                            <div className="grid gap-3 sm:grid-cols-3">
+                              <div>
+                                <label className="label">Nombre</label>
+                                <input
+                                  value={edit.nombre}
+                                  onChange={(e) => setEdit({ ...edit, nombre: e.target.value })}
+                                  className="field"
+                                />
+                              </div>
+                              <div>
+                                <label className="label">Correo</label>
+                                <input
+                                  value={edit.email}
+                                  onChange={(e) => setEdit({ ...edit, email: e.target.value })}
+                                  type="email"
+                                  className="field"
+                                />
+                              </div>
+                              <div>
+                                <label className="label">WhatsApp (con lada)</label>
+                                <input
+                                  value={edit.telefono}
+                                  onChange={(e) => setEdit({ ...edit, telefono: e.target.value })}
+                                  inputMode="tel"
+                                  placeholder="+52..."
+                                  className="field"
+                                />
+                              </div>
+                            </div>
+                            {editMsg ? (
+                              <p className="mt-3 text-sm font-semibold text-[#ffb2b2]">{editMsg}</p>
+                            ) : null}
+                            <div className="mt-4 flex flex-wrap gap-3">
+                              <button
+                                onClick={() => guardarEdicion(i)}
+                                disabled={ocupado === i.id}
+                                className="btn-cta btn-press !px-4 !py-2 !text-sm"
+                              >
+                                {ocupado === i.id ? "Guardando…" : "Guardar"}
+                              </button>
+                              <button
+                                onClick={() => setEditando(null)}
+                                className="btn-ghost btn-press !px-4 !py-2 !text-sm"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return (
+                      <tr key={i.id} className="border-t border-white/[0.06]">
+                        <td className="px-4 py-3 font-semibold">{i.nombre}</td>
+                        <td className="px-4 py-3 text-white/60">{i.event_name}</td>
+                        <td className="px-4 py-3 tabular text-white/60">{i.telefono}</td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={
+                              estado.tono === "ok"
+                                ? "font-semibold text-[#19e16d]"
+                                : estado.tono === "espera"
+                                  ? "text-[#ffd28a]"
+                                  : "font-semibold text-[#ffb2b2]"
+                            }
+                          >
+                            {estado.texto}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {i.ticket_id ? (
+                              <>
+                                <a
+                                  href={ligaBoleto(i.ticket_id)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn-ghost btn-press !px-3 !py-1.5 !text-xs"
+                                >
+                                  Ver
+                                </a>
+                                <button
+                                  onClick={() => copiarLiga(i)}
+                                  className="btn-ghost btn-press !px-3 !py-1.5 !text-xs"
+                                >
+                                  {copiado === i.id ? "¡Copiada!" : "Copiar liga"}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => reintentar(i)}
+                                disabled={ocupado === i.id}
+                                className="btn-cta btn-press !px-3 !py-1.5 !text-xs"
+                              >
+                                {ocupado === i.id ? "Emitiendo…" : "Reintentar boleto"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => abrirEdicion(i)}
+                              className="btn-ghost btn-press !px-3 !py-1.5 !text-xs"
+                            >
+                              Editar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

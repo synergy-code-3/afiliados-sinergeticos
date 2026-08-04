@@ -11,7 +11,22 @@ interface Inscripcion {
   email: string;
   telefono: string;
   status: string;
+  ticket_id: string | null;
   created_at: string;
+}
+
+export interface Ingreso {
+  moneda: string;
+  total_cents: number;
+  mes_cents: number | null;
+}
+
+export interface Metricas {
+  referidos: number;
+  con_boleto: number;
+  cerrados: number;
+  /** solo MXN o USD — la moneda la define el evento, no la compra */
+  ingresos: Ingreso[];
 }
 
 interface Recurso {
@@ -31,16 +46,22 @@ export default async function Panel() {
 
   const { data: perfil } = await supabase
     .from("af_afiliados")
-    .select("nombre, activo")
+    .select("nombre, ciudad, telefono, activo")
     .eq("id", user.id)
-    .maybeSingle<{ nombre: string; activo: boolean }>();
+    .maybeSingle<{ nombre: string; ciudad: string | null; telefono: string | null; activo: boolean }>();
 
   const { data: inscripciones } = await supabase
     .from("af_inscripciones")
-    .select("id, event_name, nombre, email, telefono, status, created_at")
+    .select("id, event_name, nombre, email, telefono, status, ticket_id, created_at")
     .eq("afiliado_id", user.id)
     .order("created_at", { ascending: false })
     .returns<Inscripcion[]>();
+
+  // Métricas del afiliado. La RPC usa auth.uid() por dentro: nadie puede
+  // consultar las de otro. Los ingresos vienen DESGLOSADOS POR MONEDA — en la
+  // base conviven 15 monedas y sumarlas daría un número sin significado.
+  const { data: metricasRaw } = await supabase.rpc("mis_metricas");
+  const metricas = (metricasRaw ?? null) as Metricas | null;
 
   const { data: recursos } = await supabase
     .from("af_recursos")
@@ -56,6 +77,12 @@ export default async function Panel() {
       sinPerfil={!perfil}
       inscripciones={inscripciones ?? []}
       recursos={recursos ?? []}
+      metricas={metricas}
+      perfil={{
+        nombre: perfil?.nombre ?? "",
+        ciudad: perfil?.ciudad ?? "",
+        telefono: perfil?.telefono ?? "",
+      }}
     />
   );
 }

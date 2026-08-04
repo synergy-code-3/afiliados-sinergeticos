@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseService } from "@/lib/supabase-server";
+import { esAdmin } from "@/lib/admin-auth";
 
 const BUCKET = "afiliados-recursos";
 const MAX_MB = 50;
@@ -13,10 +14,8 @@ function tipoDesdeArchivo(nombre: string): string {
 
 /** Crea un recurso: archivo subido al bucket público, o un link externo. */
 export async function POST(req: NextRequest) {
+  if (!(await esAdmin())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const form = await req.formData();
-  if (form.get("k") !== process.env.AFILIADOS_ADMIN_KEY) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
   const titulo = String(form.get("titulo") ?? "").trim();
   const descripcion = String(form.get("descripcion") ?? "").trim();
   const link = String(form.get("link") ?? "").trim();
@@ -58,10 +57,8 @@ export async function POST(req: NextRequest) {
 
 /** Borra un recurso (y su archivo del bucket si vive ahí). */
 export async function DELETE(req: NextRequest) {
-  const { id, k } = (await req.json()) as { id?: string; k?: string };
-  if (!k || k !== process.env.AFILIADOS_ADMIN_KEY) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  if (!(await esAdmin())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  const { id } = (await req.json()) as { id?: string };
   if (!id) return NextResponse.json({ error: "Falta id" }, { status: 400 });
 
   const service = supabaseService();

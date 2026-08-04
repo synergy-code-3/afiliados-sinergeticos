@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function AdminToggle({ id, activo, k }: { id: string; activo: boolean; k: string }) {
+export default function AdminToggle({ id, activo }: { id: string; activo: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -13,7 +13,7 @@ export default function AdminToggle({ id, activo, k }: { id: string; activo: boo
     await fetch("/api/admin/toggle", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, activo: !activo, k }),
+      body: JSON.stringify({ id, activo: !activo }),
     });
     setLoading(false);
     router.refresh();
