@@ -32,6 +32,23 @@ gratuitos y el boleto le llega al invitado por WhatsApp al instante.
 
 ---
 
+## Sesión 14 — 4-ago-2026 — La cuenta de ejemplo pasa a ser la de Manuel
+
+`jmdeleon@zigma3.com` es ahora **la cuenta con datos de prueba** — es quien va a enseñar
+el portal. Se le creó la cuenta (no existía en Auth) y se le transfirieron los 14
+invitados de ejemplo. **También es admin**, así que ve el panel completo; sus datos demo
+siguen excluidos de las métricas reales.
+
+La cuenta `demo@afiliados.sinergeticos.com` quedó **desactivada y sin datos**, aún marcada
+`demo=true` para que no ensucie ningún conteo.
+
+**Arreglado de paso:** los botones "Ver" de la demo apuntaban a `demo-ticket-N`, que **no
+existe** — y como la boletera es una SPA que responde 200 con cualquier id, se veía una
+pantalla rota justo al enseñarla. Ahora apuntan a un boleto REAL
+(`da624c22-…`, "Manuel de Leónidas · Cd. Juárez"), así que la demo se ve completa.
+
+---
+
 ## Sesión 13 — 4-ago-2026 — Admin por CUENTA (no por llave) + notas y contacto
 
 **Antes:** el admin se abría con una llave compartida. Quien la tuviera entraba, no se
