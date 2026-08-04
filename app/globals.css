@@ -1,22 +1,34 @@
 @import "tailwindcss";
 
-/* Estética del sistema de embudos Sinergéticos (eventos SEED) */
+/* Sistema visual Synergy +1 — neumorfismo oscuro Sinergéticos.
+   Superficies extruidas del MISMO material que el fondo: doble sombra
+   (luz arriba-izquierda, sombra abajo-derecha), campos hundidos (inset)
+   y botón presionado inset. El texto conserva contraste alto. */
 :root {
   --font-display: var(--font-outfit), 'Outfit', sans-serif;
   --font-body:    var(--font-outfit), 'Outfit', sans-serif;
 
-  --bg:        #080808;
-  --bg-2:      #0f0f0f;
+  --bg:        #0e1412;
+  --bg-2:      #121917;
   --text:      #ffffff;
-  --text-dim:  rgba(255,255,255,0.55);
-  --text-faint:rgba(255,255,255,0.28);
-  --border:    rgba(255,255,255,0.09);
-  --border-md: rgba(255,255,255,0.14);
+  --text-dim:  rgba(255,255,255,0.62);
+  --text-faint:rgba(255,255,255,0.30);
+  --border:    rgba(255,255,255,0.07);
+  --border-md: rgba(255,255,255,0.12);
   --accent:     #19e16d;
   --accent-rgb: 25,225,109;
   --green:     var(--accent);
-  --surface:   rgba(255,255,255,0.05);
-  --surface-md:rgba(255,255,255,0.08);
+  --oro:       #d9b45b;
+  --oro-rgb:   217,180,91;
+  --surface:   #121917;
+  --surface-md:#16201c;
+  --radius:    18px;
+
+  /* Doble sombra neumórfica (y su versión suave para insets) */
+  --neu-luz:           rgba(46, 66, 56, 0.55);
+  --neu-sombra:        rgba(2, 6, 4, 0.85);
+  --neu-luz-suave:     rgba(46, 66, 56, 0.35);
+  --neu-sombra-suave:  rgba(2, 6, 4, 0.70);
 }
 
 * { box-sizing: border-box; }
@@ -40,17 +52,23 @@ p { text-wrap: pretty; }
   border-radius: 4px;
 }
 
+/* Presionado = hundido. Las sombras van por clase (nunca inline: inline le
+   gana a :active y el hundido no se ve). El !important vence a .btn-glow,
+   cuya animación también compite por el box-shadow. */
 .btn-press:active {
   transform: scale(0.97) translateY(1px) !important;
-  transition: transform 0.08s ease !important;
+  box-shadow:
+    inset 4px 4px 10px var(--neu-sombra-suave),
+    inset -3px -3px 8px rgba(255,255,255,0.08) !important;
+  transition: transform 0.08s ease, box-shadow 0.08s ease !important;
 }
 
-/* Noise texture overlay */
+/* Noise texture overlay (sutil) */
 body::after {
   content: '';
   position: fixed; inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-  opacity: 0.04;
+  opacity: 0.025;
   pointer-events: none;
   z-index: 999;
   mix-blend-mode: overlay;
@@ -62,8 +80,8 @@ body::after {
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes glow-pulse {
-  0%,100% { box-shadow: 0 0 20px 0px rgba(var(--accent-rgb),0.25), 0 0 0 0 rgba(var(--accent-rgb),0); }
-  50%      { box-shadow: 0 0 40px 8px rgba(var(--accent-rgb),0.35), 0 0 60px 20px rgba(var(--accent-rgb),0.08); }
+  0%,100% { box-shadow: -6px -6px 14px var(--neu-luz), 8px 8px 18px var(--neu-sombra), 0 0 20px 0px rgba(var(--accent-rgb),0.22); }
+  50%      { box-shadow: -6px -6px 14px var(--neu-luz), 8px 8px 18px var(--neu-sombra), 0 0 38px 6px rgba(var(--accent-rgb),0.30); }
 }
 @keyframes aurora-1 {
   0%, 100% { transform: translate(-10%, -6%) scale(1); }
@@ -78,6 +96,25 @@ body::after {
   50%      { opacity: 0.4; transform: scale(0.85); }
 }
 
+/* Celebraciones (las usan otros módulos: premios, ventas, contadores) */
+@keyframes pop {
+  0%   { opacity: 0; transform: scale(0.5); }
+  60%  { opacity: 1; transform: scale(1.12); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes confetti-fall {
+  0%   { opacity: 1; transform: translateY(-10vh) rotate(0deg); }
+  100% { opacity: 0; transform: translateY(105vh) rotate(720deg); }
+}
+@keyframes shine {
+  0%   { transform: translateX(-150%) skewX(-18deg); }
+  100% { transform: translateX(250%) skewX(-18deg); }
+}
+@keyframes contador-entra {
+  from { opacity: 0; transform: translateY(12px) scale(0.92); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
 .a1 { animation: up 0.8s cubic-bezier(0.16,1,0.3,1) 0.00s both; }
 .a2 { animation: up 0.8s cubic-bezier(0.16,1,0.3,1) 0.14s both; }
 .a3 { animation: up 0.8s cubic-bezier(0.16,1,0.3,1) 0.26s both; }
@@ -85,7 +122,13 @@ body::after {
 .btn-glow { animation: glow-pulse 3s ease-in-out infinite; }
 .pulse    { animation: pulse-dot 2s ease-in-out infinite; }
 
-/* Aurora del hero */
+/* Números que aparecen (paneles, proyector, celebraciones) */
+.contador {
+  font-variant-numeric: tabular-nums;
+  animation: contador-entra 0.7s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* Aurora del hero (sutil: el neumorfismo pone el volumen, no la luz) */
 .aurora {
   position: absolute; inset: 0; overflow: hidden; pointer-events: none;
 }
@@ -94,12 +137,12 @@ body::after {
 }
 .aurora .b1 {
   width: 520px; height: 520px; top: -180px; left: -120px;
-  background: rgba(var(--accent-rgb),0.16);
+  background: rgba(var(--accent-rgb),0.10);
   animation: aurora-1 16s ease-in-out infinite;
 }
 .aurora .b2 {
   width: 420px; height: 420px; bottom: -160px; right: -100px;
-  background: rgba(var(--accent-rgb),0.10);
+  background: rgba(var(--accent-rgb),0.06);
   animation: aurora-2 20s ease-in-out infinite;
 }
 
@@ -113,36 +156,76 @@ body::after {
   width: 100%;
 }
 
-/* ── Glass card ── */
-.glass {
+/* ── Tarjeta extruida (neumórfica) ──
+   .glass conserva su nombre para que todo el markup existente se re-skinee
+   solo; .neu es el alias nuevo para módulos nuevos. */
+.glass,
+.neu {
   background: var(--surface);
-  border: 1px solid var(--border-md);
-  border-radius: 16px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: var(--radius);
+  box-shadow: -6px -6px 14px var(--neu-luz), 8px 8px 18px var(--neu-sombra);
 }
 
-/* ── Form fields ── */
+/* Superficie hundida (pozos, campos de lectura, carriles) */
+.neu-inset {
+  background: #0b110e;
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: var(--radius);
+  box-shadow:
+    inset 5px 5px 12px var(--neu-sombra-suave),
+    inset -4px -4px 10px var(--neu-luz-suave);
+}
+
+/* Botón neumórfico neutro (mismo material que el fondo) */
+.neu-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px;
+  background: var(--surface); color: #fff;
+  font-weight: 700; font-size: 15px;
+  border: 1px solid rgba(255,255,255,0.04); border-radius: 14px;
+  padding: 12px 22px; cursor: pointer;
+  box-shadow: -4px -4px 10px var(--neu-luz), 6px 6px 14px var(--neu-sombra);
+  transition: color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+.neu-btn:hover { color: var(--accent); }
+.neu-btn:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 4px 4px 10px var(--neu-sombra-suave),
+    inset -3px -3px 8px var(--neu-luz-suave);
+}
+
+/* Acento dorado del Club (premios, momentos) */
+.oro { color: var(--oro); }
+
+/* ── Form fields (hundidos: inset) ── */
 .field {
   width: 100%;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(var(--accent-rgb),0.50);
-  border-radius: 8px;
+  min-height: 48px;
+  background: #0b110e;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
   padding: 14px 16px;
   color: #fff;
   font-family: var(--font-body);
   font-size: 16px;
   font-weight: 400;
   outline: none;
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+  box-shadow:
+    inset 5px 5px 12px var(--neu-sombra-suave),
+    inset -4px -4px 10px var(--neu-luz-suave);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 .field::placeholder { color: rgba(255,255,255,0.45); }
 .field:focus {
-  border-color: var(--green);
-  background: rgba(var(--accent-rgb),0.07);
-  box-shadow: 0 0 0 3px rgba(var(--accent-rgb),0.20);
+  border-color: rgba(var(--accent-rgb),0.7);
+  box-shadow:
+    inset 5px 5px 12px var(--neu-sombra-suave),
+    inset -4px -4px 10px var(--neu-luz-suave),
+    0 0 0 3px rgba(var(--accent-rgb),0.20);
 }
-select.field option { background: #0f0f0f; color: #fff; }
+select.field option { background: var(--bg); color: #fff; }
 
 .label {
   display: block;
@@ -169,27 +252,135 @@ select.field option { background: #0f0f0f; color: #fff; }
 /* ── CTA buttons ── */
 .btn-cta {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  background: var(--green); color: #000;
+  min-height: 48px;
+  background: var(--green); color: #04140b;
   font-weight: 800; font-size: 16px;
-  border: none; border-radius: 10px;
+  border: none; border-radius: 14px;
   padding: 15px 28px; cursor: pointer;
-  transition: filter 0.2s, transform 0.2s;
+  box-shadow:
+    -4px -4px 10px var(--neu-luz),
+    6px 6px 14px var(--neu-sombra),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+  transition: filter 0.2s, transform 0.2s, box-shadow 0.2s;
 }
-.btn-cta:hover { filter: brightness(1.12); }
+.btn-cta:hover { filter: brightness(1.1); }
 .btn-cta:disabled { opacity: 0.5; cursor: default; }
 
 .btn-ghost {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  background: transparent; color: rgba(255,255,255,0.9);
+  min-height: 48px;
+  background: var(--surface); color: rgba(255,255,255,0.92);
   font-weight: 600; font-size: 15px;
-  border: 1px solid var(--border-md); border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.05); border-radius: 14px;
   padding: 14px 24px; cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  box-shadow: -4px -4px 10px var(--neu-luz), 6px 6px 14px var(--neu-sombra);
+  transition: color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
-.btn-ghost:hover { background: var(--surface); border-color: rgba(255,255,255,0.3); }
+.btn-ghost:hover { color: var(--accent); border-color: rgba(var(--accent-rgb),0.25); }
 
 /* ── Rule ── */
 .rule { height: 1px; background: var(--border); }
+
+/* ── Hero de la landing: la foto vive DENTRO de una tarjeta extruida.
+   Si la imagen no existe aún, se ve el degradado de respaldo (la capa url
+   va encima; al fallar simplemente no pinta). ── */
+.hero-foto {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  border-radius: calc(var(--radius) - 6px);
+  background-image:
+    url("/brand/hero-comunidad.webp"),
+    linear-gradient(135deg, #16301f 0%, #0e1412 55%, #142819 100%);
+  background-size: cover;
+  background-position: center;
+}
+
+/* ── Globito de ayuda por WhatsApp ──
+   60px, neumórfico, fijo abajo-derecha. En móvil sube a 84px para no tapar
+   los CTA pegados al fondo. */
+.wa-burbuja {
+  position: fixed;
+  right: 18px;
+  bottom: 84px;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid rgba(255,255,255,0.05);
+  box-shadow: -5px -5px 12px var(--neu-luz), 7px 7px 16px var(--neu-sombra);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+@media (min-width: 640px) {
+  .wa-burbuja { right: 24px; bottom: 24px; }
+}
+.wa-burbuja:active {
+  transform: translateY(1px);
+  box-shadow:
+    inset 4px 4px 10px var(--neu-sombra-suave),
+    inset -3px -3px 8px var(--neu-luz-suave);
+}
+@keyframes wa-pulso {
+  0%, 100% {
+    box-shadow: -5px -5px 12px var(--neu-luz), 7px 7px 16px var(--neu-sombra),
+      0 0 0 0 rgba(37,211,102,0.30);
+  }
+  50% {
+    box-shadow: -5px -5px 12px var(--neu-luz), 7px 7px 16px var(--neu-sombra),
+      0 0 0 12px rgba(37,211,102,0);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .wa-burbuja { animation: wa-pulso 3s ease-in-out infinite; }
+}
+.wa-tooltip {
+  position: absolute;
+  right: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--surface-md);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: -3px -3px 8px var(--neu-luz), 5px 5px 12px var(--neu-sombra);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+.wa-burbuja:hover .wa-tooltip,
+.wa-burbuja:focus-visible .wa-tooltip { opacity: 1; }
+
+/* ── Logo Synergy +1 ── */
+.logo-synergy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: #fff;
+}
+.logo-mas-uno {
+  display: inline-grid;
+  place-items: center;
+  padding: 0.34em 0.55em;
+  border-radius: 999px;
+  font-size: 0.62em;
+  font-weight: 800;
+  letter-spacing: 0;
+  color: #04140b;
+  background: var(--accent);
+  box-shadow:
+    -2px -2px 5px var(--neu-luz),
+    3px 3px 7px var(--neu-sombra),
+    inset 0 1px 0 rgba(255,255,255,0.35);
+}
 
 /* ── Ruta de premios ──────────────────────────────────────────────────────
    Un solo camino con los premios encima: el avance es una línea continua que
@@ -197,13 +388,13 @@ select.field option { background: #0f0f0f; color: #fff; }
    El carril desaparece en móvil, donde la escalera se lee como lista. */
 
 .ruta { position: relative; overflow: hidden; }
-/* el barrido de luz sobre el vidrio */
+/* el barrido de luz sobre la superficie */
 .ruta::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(115deg, rgba(255, 255, 255, 0.08), transparent 42%);
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.05), transparent 42%);
 }
 
 .ruta-carril,
@@ -214,14 +405,17 @@ select.field option { background: #0f0f0f; color: #fff; }
     display: block;
     position: absolute;
     left: 0; right: 0; top: 30px;
-    height: 3px;
+    height: 5px;
     border-radius: 99px;
-    background: rgba(255, 255, 255, 0.07);
+    background: #0b110e;
+    box-shadow:
+      inset 2px 2px 4px var(--neu-sombra-suave),
+      inset -1px -1px 3px var(--neu-luz-suave);
   }
   .ruta-avance {
     display: block;
     position: absolute;
-    left: 0; top: 30px;
+    left: 0; top: 31px;
     height: 3px;
     border-radius: 99px;
     background: linear-gradient(90deg, #0d7a3c, #19e16d);
@@ -242,10 +436,10 @@ select.field option { background: #0f0f0f; color: #fff; }
   font-size: 18px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  background: #0a100d;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 10px 26px -10px rgba(0, 10, 5, 0.55);
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.32);
+  box-shadow: -4px -4px 10px var(--neu-luz), 6px 6px 14px var(--neu-sombra);
 }
 .ruta-nodo.es-logrado {
   background: linear-gradient(180deg, #24f27c, #19e16d);
@@ -253,20 +447,32 @@ select.field option { background: #0f0f0f; color: #fff; }
   color: #04140b;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    -4px -4px 10px var(--neu-luz),
     0 10px 28px -8px rgba(25, 225, 109, 0.5);
 }
 .ruta-nodo.es-actual {
-  border-color: #19e16d;
+  border-color: rgba(var(--accent-rgb), 0.8);
   color: #fff;
   box-shadow:
     0 0 0 6px rgba(25, 225, 109, 0.1),
-    0 12px 30px -10px rgba(0, 10, 5, 0.55);
+    -4px -4px 10px var(--neu-luz),
+    6px 6px 14px var(--neu-sombra);
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .ruta-nodo.es-actual { animation: ruta-latido 2.6s ease-in-out infinite; }
   @keyframes ruta-latido {
-    0%, 100% { box-shadow: 0 0 0 6px rgba(25, 225, 109, 0.1), 0 12px 30px -10px rgba(0, 10, 5, 0.55); }
-    50%      { box-shadow: 0 0 0 11px rgba(25, 225, 109, 0.05), 0 12px 30px -10px rgba(0, 10, 5, 0.55); }
+    0%, 100% { box-shadow: 0 0 0 6px rgba(25, 225, 109, 0.1), -4px -4px 10px var(--neu-luz), 6px 6px 14px var(--neu-sombra); }
+    50%      { box-shadow: 0 0 0 11px rgba(25, 225, 109, 0.05), -4px -4px 10px var(--neu-luz), 6px 6px 14px var(--neu-sombra); }
+  }
+}
+
+/* ── Movimiento reducido: sin animaciones, contenido visible ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -1,0 +1,167 @@
+/* Bienvenida — onboarding Synergy +1.
+   Usa los tokens del design-system con respaldo por si aún no aterrizan en
+   globals.css. Todas las animaciones viven bajo prefers-reduced-motion:
+   no-preference — con movimiento reducido, todo queda quieto y legible. */
+
+.bienvenida-card {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Barra de progreso neumórfica (hundida) con perla que brinca ── */
+.prog-neu {
+  height: 14px;
+  border-radius: 99px;
+  background: var(--surface, rgba(255, 255, 255, 0.05));
+  box-shadow:
+    inset 3px 3px 8px var(--neu-sombra, rgba(2, 6, 4, 0.85)),
+    inset -3px -3px 8px var(--neu-luz, rgba(46, 66, 56, 0.55));
+}
+.prog-avance {
+  position: relative;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #0d7a3c, var(--accent, #19e16d));
+  box-shadow: 0 0 14px -2px rgba(25, 225, 109, 0.55);
+  transition: width 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.prog-perla {
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #b8ffd9, var(--accent, #19e16d) 65%);
+  box-shadow:
+    -3px -3px 8px var(--neu-luz, rgba(46, 66, 56, 0.55)),
+    4px 4px 10px var(--neu-sombra, rgba(2, 6, 4, 0.85));
+}
+
+/* ── Retrato circular neumórfico ── */
+.foto-neu {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--surface, #121917);
+  border: 2px solid rgba(25, 225, 109, 0.35);
+  box-shadow:
+    -6px -6px 14px var(--neu-luz, rgba(46, 66, 56, 0.55)),
+    8px 8px 18px var(--neu-sombra, rgba(2, 6, 4, 0.85));
+}
+.foto-neu img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.foto-inicial {
+  font-size: 44px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ── Celebración entre pasos: check que hace pop + partículas ── */
+.celebra {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: rgba(8, 8, 8, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.celebra-check {
+  display: grid;
+  place-items: center;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  color: #04140b;
+  background: linear-gradient(180deg, #24f27c, var(--accent, #19e16d));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 14px 34px -8px rgba(25, 225, 109, 0.55);
+}
+.celebra-particula {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+/* ── Confetti del cierre (duración y retraso van inline, por pieza) ── */
+.confeti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.confeti span {
+  position: absolute;
+  top: -18px;
+  width: 9px;
+  height: 15px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .prog-perla {
+    animation: prog-brinco 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .celebra {
+    animation: celebra-entra 0.25s ease-out both;
+  }
+  .celebra-check {
+    animation: celebra-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .celebra-particula {
+    animation: celebra-vuela 0.85s ease-out both;
+  }
+  .confeti span {
+    animation: confeti-cae ease-in both;
+  }
+
+  @keyframes prog-brinco {
+    0%   { transform: translateY(0) scale(1); }
+    35%  { transform: translateY(-14px) scale(1.25); }
+    65%  { transform: translateY(3px) scale(0.92); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  @keyframes celebra-entra {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes celebra-pop {
+    0%   { transform: scale(0); }
+    70%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+  @keyframes celebra-vuela {
+    0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
+    25%  { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--tx), var(--ty)) rotate(220deg) scale(1); }
+  }
+  @keyframes confeti-cae {
+    0%   { opacity: 0; transform: translateY(0) rotate(0deg); }
+    8%   { opacity: 1; }
+    100% { opacity: 0.9; transform: translateY(560px) rotate(var(--giro, 360deg)); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .prog-avance {
+    transition: none;
+  }
+}

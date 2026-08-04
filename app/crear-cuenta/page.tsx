@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase";
 
-export default function CrearCuenta() {
+/** Quien invitó (viene de /api/ref cuando la liga trae ?ref=CÓDIGO). */
+interface Referente {
+  id: string;
+  nombre: string;
+}
+
+function FormularioCrearCuenta() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const refCodigo = (searchParams.get("ref") ?? "").trim().toUpperCase();
+  const [referente, setReferente] = useState<Referente | null>(null);
   const [nombre, setNombre] = useState("");
   const [ciudad, setCiudad] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -14,6 +23,31 @@ export default function CrearCuenta() {
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!/^[A-Z0-9]{6}$/.test(refCodigo)) return;
+    let vivo = true;
+    fetch(`/api/ref?codigo=${refCodigo}`)
+      .then((r) => r.json())
+      .then((d: { ok?: boolean; id?: string; nombre?: string }) => {
+        if (vivo && d.ok && d.id && d.nombre) {
+          setReferente({ id: d.id, nombre: d.nombre });
+          // patrón del embudo BGI: la atribución sobrevive aunque el alta se
+          // complete después (confirmación de correo) — el panel la consume
+          try {
+            localStorage.setItem("synergy_ref", JSON.stringify({ id: d.id, nombre: d.nombre }));
+          } catch {
+            // storage lleno o bloqueado: el banner sigue funcionando igual
+          }
+        }
+      })
+      .catch(() => {
+        // si la consulta falla, simplemente no se muestra el banner
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [refCodigo]);
 
   async function crear(e: React.FormEvent) {
     e.preventDefault();
@@ -31,18 +65,33 @@ export default function CrearCuenta() {
       setLoading(false);
       return setMsg(
         error.message.includes("already registered")
-          ? "Ese correo ya tiene cuenta — usa 'Ya tengo cuenta'."
+          ? "Oops — ese correo ya tiene cuenta 🙈, entra por 'Ya tengo cuenta'."
           : `No se pudo crear la cuenta: ${error.message}`,
       );
     }
     if (data.session && data.user) {
       // perfil del afiliado (RLS: solo su propia fila)
-      await supabase.from("af_afiliados").insert({
+      const perfil = {
         id: data.user.id,
         nombre: nombre.trim(),
         ciudad: ciudad.trim() || null,
         telefono: telefono.trim() || null,
-      });
+      };
+      if (referente) {
+        // liga con quien lo invitó; si la columna aún no existe (migración
+        // 0082 pendiente) se reintenta sin ella — el alta no se bloquea jamás
+        const { error: refErr } = await supabase
+          .from("af_afiliados")
+          .insert({ ...perfil, referido_por: referente.id });
+        if (refErr) await supabase.from("af_afiliados").insert(perfil);
+      } else {
+        await supabase.from("af_afiliados").insert(perfil);
+      }
+      try {
+        localStorage.removeItem("synergy_ref");
+      } catch {
+        // sin consecuencia: la llave caduca sola al usarse en el panel
+      }
       router.push("/panel");
       return;
     }
@@ -59,6 +108,12 @@ export default function CrearCuenta() {
         <div className="glass a1 w-full max-w-md p-8">
           <p className="sec-tag mb-4">Paso 1 de 1</p>
           <h1 className="text-2xl font-extrabold">Crea tu cuenta de afiliado</h1>
+          {referente ? (
+            <div className="mt-4 rounded-xl border border-[#19e16d]/35 bg-[#19e16d]/10 p-4 text-sm leading-relaxed text-white/85">
+              🤝 Te invitó <span className="font-bold text-[#19e16d]">{referente.nombre}</span> — al
+              crear tu cuenta quedarán conectados.
+            </div>
+          ) : null}
           <form onSubmit={crear} className="mt-6 space-y-4">
             <div>
               <label className="label">Tu nombre</label>
@@ -92,5 +147,23 @@ export default function CrearCuenta() {
         </div>
       </div>
     </main>
+  );
+}
+
+/** useSearchParams exige Suspense en el App Router — el shell es idéntico
+ * al de la página, así no hay brinco visual mientras hidrata. */
+export default function CrearCuenta() {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative">
+          <div className="aurora">
+            <span className="b1" />
+          </div>
+        </main>
+      }
+    >
+      <FormularioCrearCuenta />
+    </Suspense>
   );
 }

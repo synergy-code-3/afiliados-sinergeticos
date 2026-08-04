@@ -24,7 +24,8 @@ export async function middleware(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && req.nextUrl.pathname.startsWith("/panel")) {
+  const ruta = req.nextUrl.pathname;
+  if (!user && (ruta.startsWith("/panel") || ruta.startsWith("/bienvenida"))) {
     const url = req.nextUrl.clone();
     url.pathname = "/entrar";
     return NextResponse.redirect(url);
@@ -33,5 +34,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|ico)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|ico|webp)$).*)"],
 };

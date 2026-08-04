@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { supabaseService } from "@/lib/supabase-server";
 import { estadoAdmin } from "@/lib/admin-auth";
+import { synergyPlusListo } from "@/lib/schema";
 import AdminToggle from "./toggle";
 import AdminRecursos from "./recursos";
 import SinAcceso from "./sin-acceso";
 import AdminMetricasPanel, { type AdminMetricas } from "./metricas";
 import AdminAdmins, { type Admin } from "./admins";
+import AdminVentas from "./ventas";
+import AdminRed, { type GrupoRed, type MiembroRed } from "./red";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +63,52 @@ export default async function Admin() {
   const { data: metricasRaw } = await service.rpc("admin_metricas");
   const metricas = (metricasRaw ?? null) as AdminMetricas | null;
 
+  // ── Synergy +1: red de referidos entre afiliados (migración 0082) ──
+  const dbListo = await synergyPlusListo();
+  let arbol: GrupoRed[] = [];
+  if (dbListo) {
+    const { data: conRef } = await service
+      .from("af_afiliados")
+      .select("id, nombre, referido_por, created_at")
+      .not("referido_por", "is", null)
+      .returns<{ id: string; nombre: string; referido_por: string; created_at: string }[]>();
+
+    const hijos = conRef ?? [];
+    const { data: ventasRef } = hijos.length
+      ? await service
+          .from("af_ventas")
+          .select("afiliado_id, comision_cents, override_cents, moneda, estado")
+          .in(
+            "afiliado_id",
+            hijos.map((h) => h.id),
+          )
+          .neq("estado", "rechazada")
+          .returns<
+            { afiliado_id: string; comision_cents: number; override_cents: number; moneda: string; estado: string }[]
+          >()
+      : { data: [] };
+
+    const nombrePorId = new Map((afiliados ?? []).map((a) => [a.id, a.nombre]));
+    const lideres = [...new Set(hijos.map((h) => h.referido_por))];
+    arbol = lideres.map((liderId) => ({
+      lider: { id: liderId, nombre: nombrePorId.get(liderId) ?? "—" },
+      miembros: hijos
+        .filter((h) => h.referido_por === liderId)
+        .map((h): MiembroRed => {
+          const suyas = (ventasRef ?? []).filter((v) => v.afiliado_id === h.id);
+          return {
+            id: h.id,
+            nombre: h.nombre,
+            creadoEl: h.created_at,
+            ventas: suyas.length,
+            comisionCents: suyas.reduce((t, v) => t + Number(v.comision_cents), 0),
+            overrideCents: suyas.reduce((t, v) => t + Number(v.override_cents), 0),
+            moneda: suyas[0]?.moneda ?? "MXN",
+          };
+        }),
+    }));
+  }
+
   const { data: recursos } = await service
     .from("af_recursos")
     .select("id, titulo, descripcion, url, tipo, activo")
@@ -100,6 +149,10 @@ export default async function Admin() {
         </div>
 
         {metricas ? <AdminMetricasPanel m={metricas} /> : null}
+
+        <AdminVentas dbListo={dbListo} />
+
+        <AdminRed dbListo={dbListo} arbol={arbol} />
 
         <details className="mt-10">
           <summary className="cursor-pointer text-sm font-semibold text-white/50 hover:text-white/70">

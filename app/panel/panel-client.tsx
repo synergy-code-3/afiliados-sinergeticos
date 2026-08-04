@@ -7,7 +7,14 @@ import { supabaseBrowser } from "@/lib/supabase";
 import { buildE164, validarTelefono } from "@/lib/phone";
 import { ligaBoleto, estadoLegible } from "@/lib/boleto-ui";
 import { construirCsv, descargarCsv } from "@/lib/csv";
-import type { Metricas } from "./page";
+import { PAGO_DIAS_HABILES, VALIDACION_HORAS } from "@/lib/comisiones";
+import type { Metricas, MiembroEquipo, MisComisiones, TotalMoneda } from "./page";
+import Proyector from "./secciones/proyector";
+import Equipo from "./secciones/equipo";
+import SeccionPremios from "./secciones/premios";
+import SeccionTutoriales from "./secciones/tutoriales";
+import SeccionPracticas from "./secciones/practicas";
+import MapaComisiones from "./secciones/mapa-comisiones";
 
 interface Evento {
   id: string;
@@ -37,15 +44,6 @@ interface Recurso {
   tipo: string;
 }
 
-/** Escalera de premios (confirmada por David, junta 3-ago-2026).
- * Se gana por referidos que YA PAGARON, no por invitados. */
-const PREMIOS = [
-  { meta: 10, premio: "Renovación del Club Sinergético" },
-  { meta: 20, premio: "Pase Black a Synergy Unlimited" },
-  { meta: 50, premio: "Viaje todo pagado con Jorge Serratos a Nueva York" },
-  { meta: 100, premio: "Programa Mastermind + 3 boletos VIP" },
-] as const;
-
 const TIPO_LABEL: Record<string, string> = {
   imagen: "Imagen",
   video: "Video",
@@ -62,6 +60,13 @@ export default function PanelClient({
   metricas,
   esAdmin,
   perfil,
+  dbListo,
+  apodo,
+  fotoUrl,
+  codigoRef,
+  equipo,
+  overridePorMoneda,
+  misComisiones,
 }: {
   nombre: string;
   activo: boolean;
@@ -71,29 +76,25 @@ export default function PanelClient({
   metricas: Metricas | null;
   esAdmin: boolean;
   perfil: { nombre: string; ciudad: string; telefono: string };
+  dbListo: boolean;
+  apodo: string | null;
+  fotoUrl: string | null;
+  codigoRef: string | null;
+  equipo: MiembroEquipo[];
+  overridePorMoneda: TotalMoneda[];
+  misComisiones: MisComisiones | null;
 }) {
   // los premios se ganan por referidos que YA COMPRARON, no por invitados
+  // (la escalera visual con imágenes vive en secciones/premios.tsx)
   const cerrados = metricas?.cerrados ?? 0;
-  const siguientePremio = PREMIOS.find((p) => cerrados < p.meta);
-  const faltanPara = siguientePremio ? siguientePremio.meta - cerrados : 0;
-
-  /** Hasta dónde llega la barra de la ruta, en %.
-   *
-   * Los nodos caen en el centro de su columna, así que la barra tiene que
-   * caminar DE NODO A NODO — no de cero. Si midiera cerrados/meta-final, con
-   * 12 de 100 se vería casi vacía aunque ya se ganó el primer premio. */
-  const avanceRuta = (() => {
-    const n = PREMIOS.length;
-    const centro = (i: number) => ((i + 0.5) / n) * 100;
-    const idx = PREMIOS.findIndex((p) => cerrados < p.meta);
-    if (idx === -1) return 100; // los ganó todos
-    const metaAnterior = idx === 0 ? 0 : PREMIOS[idx - 1].meta;
-    const desde = idx === 0 ? 0 : centro(idx - 1);
-    const tramo = PREMIOS[idx].meta - metaAnterior;
-    const recorrido = tramo > 0 ? (cerrados - metaAnterior) / tramo : 0;
-    return desde + Math.max(0, Math.min(1, recorrido)) * (centro(idx) - desde);
-  })();
   const ingresos = metricas?.ingresos ?? [];
+  const hayComisiones = Boolean(
+    misComisiones &&
+      (misComisiones.pendiente.length ||
+        misComisiones.validada.length ||
+        misComisiones.pagada.length ||
+        overridePorMoneda.length),
+  );
   const dinero = (cents: number, moneda: string) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: moneda }).format(cents / 100);
   const router = useRouter();
@@ -135,7 +136,32 @@ export default function PanelClient({
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return router.push("/entrar");
-    await supabase.from("af_afiliados").insert({ id: user.id, nombre: nombrePerfil.trim() });
+    const perfilNuevo = { id: user.id, nombre: nombrePerfil.trim() };
+
+    // Atribución rescatada de /crear-cuenta?ref= (flujo con confirmación de
+    // correo: el insert del perfil corre hasta aquí y el ref viajó en
+    // localStorage — patrón del embudo BGI). Si la columna no existe aún
+    // (migración 0082), se reintenta sin ella: el alta no se bloquea jamás.
+    let referidoPor: string | null = null;
+    try {
+      const crudo = localStorage.getItem("synergy_ref");
+      if (crudo) referidoPor = (JSON.parse(crudo) as { id?: string }).id ?? null;
+    } catch {
+      referidoPor = null;
+    }
+    if (referidoPor) {
+      const { error: refErr } = await supabase
+        .from("af_afiliados")
+        .insert({ ...perfilNuevo, referido_por: referidoPor });
+      if (refErr) await supabase.from("af_afiliados").insert(perfilNuevo);
+    } else {
+      await supabase.from("af_afiliados").insert(perfilNuevo);
+    }
+    try {
+      localStorage.removeItem("synergy_ref");
+    } catch {
+      // sin consecuencia
+    }
     router.refresh();
   }
 
@@ -341,13 +367,25 @@ export default function PanelClient({
       <div className="aurora"><span className="b1" /><span className="b2" /></div>
       <div className="wrap relative pb-24 pt-12">
         <div className="a1 flex items-start justify-between gap-4">
-          <div>
-            <p className="sec-tag mb-3">
-              <span className="pulse inline-block h-1.5 w-1.5 rounded-full bg-[#19e16d]" />
-              Tu panel de afiliado
-            </p>
-            <h1 className="text-3xl font-extrabold">Hola, {nombre.split(" ")[0]}</h1>
-            <p className="mt-1.5 text-white/55">Inscribe a tus invitados y su boleto les llega por WhatsApp.</p>
+          <div className="flex items-center gap-4">
+            {fotoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={fotoUrl}
+                alt=""
+                className="h-14 w-14 flex-none rounded-full border-2 border-[#19e16d]/40 object-cover"
+              />
+            ) : null}
+            <div>
+              <p className="sec-tag mb-3">
+                <span className="pulse inline-block h-1.5 w-1.5 rounded-full bg-[#19e16d]" />
+                Tu panel Synergy +1
+              </p>
+              <h1 className="text-3xl font-extrabold">Hola, {apodo || nombre.split(" ")[0]}</h1>
+              <p className="mt-1.5 text-white/55">
+                Inscribe a tus invitados y su pase VIP les llega por WhatsApp.
+              </p>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {esAdmin ? (
@@ -462,12 +500,12 @@ export default function PanelClient({
                 <input value={invNombre} onChange={(e) => setInvNombre(e.target.value)} placeholder="Nombre completo" className="field" />
               </div>
               <div>
-                <label className="label">Correo del invitado</label>
+                <label className="label">Correo del invitado · opcional</label>
                 <input value={invEmail} onChange={(e) => setInvEmail(e.target.value)} type="email" placeholder="correo@ejemplo.com" className="field" />
               </div>
             </div>
             <div>
-              <label className="label">WhatsApp del invitado</label>
+              <label className="label">WhatsApp del invitado · obligatorio</label>
               <div className="flex gap-2">
                 <select value={dial} onChange={(e) => setDial(e.target.value)} className="field !w-28">
                   <option value="52">🇲🇽 +52</option>
@@ -484,6 +522,50 @@ export default function PanelClient({
             </button>
           </form>
         )}
+
+        {hayComisiones && misComisiones ? (
+          <section className="a3 mt-12">
+            <p className="sec-tag mb-1">Tu dinero</p>
+            <h2 className="text-xl font-bold">Tus comisiones</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              {(
+                [
+                  ["En validación", misComisiones.pendiente],
+                  ["Validadas", misComisiones.validada],
+                  ["Pagadas", misComisiones.pagada],
+                ] as const
+              ).map(([etiqueta, filas]) => (
+                <div key={etiqueta} className="glass p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
+                    {etiqueta}
+                  </p>
+                  {filas.length === 0 ? (
+                    <p className="mt-1 text-2xl font-extrabold tabular text-white/30">—</p>
+                  ) : (
+                    filas.map((f) => (
+                      <p key={f.moneda} className="mt-1 text-2xl font-extrabold tabular">
+                        {dinero(f.cents, f.moneda)}
+                      </p>
+                    ))
+                  )}
+                </div>
+              ))}
+            </div>
+            {overridePorMoneda.length > 0 ? (
+              <p className="mt-3 text-sm text-white/55">
+                Más tu bono de equipo:{" "}
+                <span className="font-bold text-[#d9b45b]">
+                  {overridePorMoneda.map((o) => dinero(o.cents, o.moneda)).join(" · ")}
+                </span>{" "}
+                por las ventas de tus +1.
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs text-white/40">
+              Tras cada evento hay {VALIDACION_HORAS} horas para validar comisiones; después del
+              corte, tu depósito llega en {PAGO_DIAS_HABILES} días hábiles.
+            </p>
+          </section>
+        ) : null}
 
         {ingresos.length > 0 ? (
           <section className="a3 mt-12">
@@ -517,105 +599,21 @@ export default function PanelClient({
         ) : null}
 
         {activo ? (
-          <section className="a3 mt-12">
-            <p className="sec-tag mb-1">Tus premios</p>
-            <h2 className="text-xl font-bold">
-              {siguientePremio
-                ? `Vas por ${siguientePremio.premio}`
-                : "Ganaste todos los premios"}
-            </h2>
-            <p className="mt-1 text-sm text-white/55">
-              {siguientePremio ? (
-                <>
-                  Te {faltanPara === 1 ? "falta" : "faltan"}{" "}
-                  <span className="font-bold text-[#19e16d]">
-                    {faltanPara} {faltanPara === 1 ? "persona" : "personas"}
-                  </span>{" "}
-                  que compren para ganártelo. Los premios se ganan por invitados que compran,
-                  no solo por inscribirlos.
-                </>
-              ) : (
-                "Llegaste al último nivel de la escalera."
-              )}
-            </p>
-
-            <div className="glass ruta mt-6 p-7 sm:p-8">
-              <div className="mb-9 flex flex-wrap items-end justify-between gap-4">
-                <p className="text-sm text-white/55">Tu avance por la escalera</p>
-                <div className="text-right">
-                  <p className="text-3xl font-extrabold leading-none tabular">{cerrados}</p>
-                  <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.14em] text-white/35">
-                    ya compraron
-                  </p>
-                </div>
-              </div>
-
-              <div className="relative pt-2">
-                {/* el carril y el avance solo existen en horizontal; en móvil la
-                    escalera se lee como lista y sobran */}
-                <div className="ruta-carril" aria-hidden="true" />
-                <div className="ruta-avance" style={{ width: `${avanceRuta}%` }} aria-hidden="true" />
-
-                <div className="relative grid gap-6 sm:grid-cols-4 sm:gap-3">
-                  {PREMIOS.map((p) => {
-                    const logrado = cerrados >= p.meta;
-                    const esActual = siguientePremio?.meta === p.meta;
-                    return (
-                      <div
-                        key={p.meta}
-                        className="flex items-center gap-4 text-left sm:flex-col sm:gap-3 sm:text-center"
-                      >
-                        <div
-                          className={`ruta-nodo ${
-                            logrado ? "es-logrado" : esActual ? "es-actual" : "es-futuro"
-                          }`}
-                        >
-                          {logrado ? (
-                            <svg
-                              width="22"
-                              height="22"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="3.2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                            >
-                              <path d="M20 6 9 17l-5-5" />
-                            </svg>
-                          ) : (
-                            p.meta
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p
-                            className={`text-[10.5px] font-bold uppercase tracking-[0.14em] tabular ${
-                              logrado
-                                ? "text-[#19e16d]"
-                                : esActual
-                                  ? "text-white/80"
-                                  : "text-white/30"
-                            }`}
-                          >
-                            {logrado ? `${p.meta} · logrado` : `${cerrados} de ${p.meta}`}
-                          </p>
-                          <p
-                            className={`mt-1.5 text-sm font-bold leading-snug ${
-                              logrado || esActual ? "text-white" : "text-white/35"
-                            }`}
-                          >
-                            {p.premio}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </section>
+          <>
+            <SeccionPremios cerrados={cerrados} />
+            <Proyector geografiaInicial="MX" />
+            <MapaComisiones />
+            <Equipo
+              dbListo={dbListo}
+              codigoRef={codigoRef}
+              miembros={equipo}
+              overridePorMoneda={overridePorMoneda}
+            />
+          </>
         ) : null}
+
+        <SeccionTutoriales />
+        <SeccionPracticas />
 
         {recursos.length > 0 ? (
           <section className="a3 mt-12">

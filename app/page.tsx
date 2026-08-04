@@ -1,6 +1,29 @@
 import Link from "next/link";
 import { supabaseSession } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
+import { COMISIONES_PAQUETE } from "@/lib/comisiones";
+
+/* Topes del teaser desde la fuente única de comisiones: paquete Club 12 meses. */
+const TOPE_MX = `$${(COMISIONES_PAQUETE.MX["12m"] / 100).toLocaleString("es-MX")} MXN`;
+const TOPE_US = `$${(COMISIONES_PAQUETE.US["12m"] / 100).toLocaleString("es-MX")} USD`;
+
+const PASOS = [
+  [
+    "01",
+    "Crea tu cuenta",
+    "Solo tu nombre, correo y una contraseña. Toma un minuto.",
+  ],
+  [
+    "02",
+    "Invita a tus +1 al Seminario",
+    "Inscribe a tus invitados al Seminario de Emprendedor a Empresario Digital: su pase VIP de cortesía les llega por WhatsApp al instante.",
+  ],
+  [
+    "03",
+    "Gana comisiones",
+    "Cuando tus +1 se unen al Club Sinergético, tú ganas una comisión por cada uno.",
+  ],
+] as const;
 
 export default async function Home() {
   const supabase = await supabaseSession();
@@ -16,18 +39,20 @@ export default async function Home() {
         <span className="b2" />
       </div>
 
-      <section className="wrap relative pb-24 pt-20 sm:pt-28">
+      <section className="wrap relative pb-16 pt-20 sm:pt-28">
         <p className="sec-tag a1 mb-5">
           <span className="pulse inline-block h-1.5 w-1.5 rounded-full bg-[#19e16d]" />
-          Eventos presenciales · Entrada gratuita
+          Synergy +1 · Un programa del Club Sinergético
         </p>
         <h1 className="a1 max-w-2xl text-4xl font-extrabold leading-[1.08] sm:text-5xl">
-          Invita a tus conocidos a los eventos{" "}
-          <span className="text-[#19e16d]">Sinergéticos</span> y regálales su boleto
+          Sé el <span className="text-[#19e16d]">+1</span> de alguien más.
+          <br />
+          Gana con ello.
         </h1>
-        <p className="a2 mt-5 max-w-xl text-lg text-white/55">
-          Crea tu cuenta de afiliado, inscribe a las personas que quieres llevar y su boleto les
-          llega al instante por WhatsApp. Tú llevas el conteo de tus invitados.
+        <p className="a2 mt-5 max-w-xl text-lg leading-relaxed text-white/60">
+          En Sinergéticos creemos que <span className="font-bold text-white">1 + 1 = 3</span>:
+          cuando acompañas a alguien en su crecimiento, juntos logran algo más grande
+          — y tú ganas con ello.
         </p>
         <div className="a3 mt-10 flex flex-wrap gap-4">
           <Link href="/crear-cuenta" className="btn-cta btn-glow btn-press">
@@ -39,19 +64,49 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="wrap relative pb-24">
-        <div className="a4 grid gap-4 sm:grid-cols-3">
-          {[
-            ["01", "Crea tu cuenta", "Solo tu nombre, correo y una contraseña. Toma un minuto."],
-            ["02", "Inscribe personas", "Nombre, correo y WhatsApp de tu invitado, y el evento al que va."],
-            ["03", "Su boleto llega solo", "Tu invitado recibe su boleto por WhatsApp al instante, listo para el evento."],
-          ].map(([n, t, d]) => (
-            <div key={n} className="glass p-6">
+      <section className="wrap relative pb-20">
+        <div className="neu a4 overflow-hidden p-2 sm:p-3">
+          <div
+            className="hero-foto"
+            role="img"
+            aria-label="La comunidad Sinergética reunida en un evento en vivo"
+          />
+        </div>
+      </section>
+
+      <section className="wrap relative pb-20">
+        <div className="grid gap-5 sm:grid-cols-3">
+          {PASOS.map(([n, t, d]) => (
+            <div key={n} className="neu p-6">
               <p className="text-[11px] font-bold tracking-[0.2em] text-[#19e16d]">{n}</p>
               <p className="mt-2 text-lg font-bold">{t}</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-white/55">{d}</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-white/60">{d}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="wrap relative pb-24">
+        <div className="neu p-8 text-center sm:p-10">
+          <p className="sec-tag justify-center">
+            <span className="pulse inline-block h-1.5 w-1.5 rounded-full bg-[#19e16d]" />
+            Comisiones por cada +1
+          </p>
+          <p className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl">
+            Gana hasta <span className="text-[#19e16d]">{TOPE_MX}</span>
+            <span className="text-white/40"> / </span>
+            <span className="text-[#19e16d]">{TOPE_US}</span>
+            <br className="hidden sm:block" /> por persona que se une al Club
+          </p>
+          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/60">
+            La comisión depende del paquete que elija tu invitado y del país del
+            evento. En tu panel ves cada venta y lo que ganas por ella.
+          </p>
+          <div className="mt-8 flex justify-center">
+            <Link href="/crear-cuenta" className="btn-cta btn-press">
+              Quiero ser un +1 →
+            </Link>
+          </div>
         </div>
       </section>
     </main>

@@ -32,6 +32,53 @@ gratuitos y el boleto le llega al invitado por WhatsApp al instante.
 
 ---
 
+## Sesión 18 — 4-ago-2026 — SYNERGY +1: rebrand completo, neumorfismo, red +1, ventas y presentación
+
+La expansión más grande del portal desde su nacimiento, dictada por Manuel. Construida
+multi-agente (8 constructores en paralelo con fronteras de archivos + brief maestro en
+[docs/SYNERGY-PLUS-BRIEF.md](docs/SYNERGY-PLUS-BRIEF.md) + revisión adversarial posterior).
+
+**La marca:** el programa ahora se llama **Synergy +1** (1+1=3 — sé el +1 de alguien más y
+gana con ello). Los afiliados invitan a sus +1 al **Seminario de Emprendedor a Empresario
+Digital** (Jorge Serratos + Manuel de León); el invitado recibe **pase VIP de cortesía** por
+WhatsApp (es el mismo boleto de la boletera de siempre, renombrado en el copy).
+
+**Lo nuevo:**
+- **Neumorfismo oscuro**: las clases existentes (.glass/.field/.btn-cta/.ruta-*) se
+  re-skinearon conservando el nombre — todo el markup se actualizó solo. Logo nuevo
+  (`app/components/logo-synergy.tsx` + `/brand/logo-synergy-plus.svg`).
+- **Globito de WhatsApp** en toda la app → +1 224 587 0935 (Daniel) con mensaje precargado.
+- **Onboarding `/bienvenida`** (primera vez): apodo → selfie/foto (bucket `af-fotos`) →
+  celebración. Redirect desde /panel solo si `onboarding_at` es null Y la 0082 está aplicada.
+- **Panel**: comisiones propias (pendiente/validada/pagada), proyector de utilidad,
+  **mapa interactivo** de la gira (6 ciudades, ago-2026) con comisiones por geografía,
+  premios CON imagen (Higgsfield), **equipo +1** (liga `/crear-cuenta?ref=CODIGO`, override
+  20%), tutoriales (5) y mejores prácticas. Correo del invitado ahora **opcional**
+  (sin correo se usa buzón técnico `invitado+<tel>@sinergeticos.com` — la boletera lo exige),
+  WhatsApp obligatorio, errores del candado en tono amable ("Oops… 🙈").
+- **Admin**: captura de ventas por correo/teléfono (comisión fija MX $2,500/$2,700/$3,000 ·
+  US $299/$359/$399 por 3/6/12 meses — `lib/comisiones.ts` es LA fuente), override 20%
+  automático al líder, estados pendiente→validada→pagada con leyenda de 72 h + depósito en
+  10 días hábiles, CSV, proyección por afiliado, y la **Red +1**.
+- **Presentación** pública `/presentacion` (selector MX/US) → deck de 18 slides con fondos
+  cine (Higgsfield soul_location), QR del grupo de WhatsApp, gira, comisiones, premios,
+  mejores prácticas y el pago claro. Teclado/swipe/fullscreen.
+- **Cron** `/api/cron/reintentar-boletos` (vercel.json, cada 15 min): cura boletos atorados
+  solo — patrón adoptado del embudo-bgi (análisis pedido por Manuel).
+
+**⚠️ Migración 0082 pendiente de aplicar** (equipo de David / proyecto Axis):
+[synergy-code-3/synergy-axis#1](https://github.com/synergy-code-3/synergy-axis/pull/1).
+El portal la detecta solo (`lib/schema.ts`): sin ella, las features de base se ocultan con
+gracia y el admin ve "Pendiente de activar". Al aplicarla, TODO se enciende sin redeploy.
+Desde esta máquina no hay credenciales del proyecto de Axis (org Synergy Code) — misma
+limitación documentada en CORREO-RESEND.md.
+
+**Ojo comisiones viejas vs nuevas:** `admin_metricas()` y su CSV siguen mostrando el 20%
+sobre ventas (modelo anterior). Conviven a propósito hasta que David confirme retirar el
+cálculo viejo; la captura nueva usa SOLO las tarifas fijas.
+
+---
+
 ## Sesión 17 — 4-ago-2026 — Los premios, rediseñados como una ruta
 
 David: "que se vea gamificado y aspiracional". Feedback **de gusto**, así que NO se

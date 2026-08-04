@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 316 88" role="img" aria-label="Synergy +1">
+  <title>Synergy +1</title>
+  <!-- Wordmark: pensado para fondo oscuro (#0e1412) -->
+  <text x="0" y="64" font-family="Outfit, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="56" font-weight="800" letter-spacing="-1" fill="#ffffff">Synergy</text>
+  <!-- Píldora +1 -->
+  <g>
+    <rect x="228" y="17" width="82" height="54" rx="27" fill="#19e16d"/>
+    <rect x="228" y="17" width="82" height="54" rx="27" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.5" stroke-opacity="0.6"/>
+    <text x="269" y="57" text-anchor="middle" font-family="Outfit, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="34" font-weight="800" fill="#04140b">+1</text>
+  </g>
+</svg>

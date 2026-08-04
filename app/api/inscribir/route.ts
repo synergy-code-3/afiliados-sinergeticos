@@ -55,14 +55,20 @@ export async function POST(req: NextRequest) {
   const email = body.email?.trim().toLowerCase() ?? "";
   const telefono = body.telefono?.trim() ?? "";
   const eventId = body.event_tk_id?.trim() ?? "";
-  if (!eventId || !nombre || !email || !telefono) {
+  if (!eventId || !nombre || !telefono) {
     return NextResponse.json({ error: "Faltan datos del invitado." }, { status: 400 });
   }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // el correo es OPCIONAL — el formato solo se revisa si lo escribieron
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "El correo no se ve válido." }, { status: 400 });
   }
   const telErr = validarTelefono(telefono);
   if (telErr) return NextResponse.json({ error: telErr }, { status: 400 });
+
+  // La boletera exige un correo. Si el invitado no dio uno, se usa un buzón
+  // técnico derivado de su WhatsApp: estable (el reintento re-emite idéntico),
+  // único por persona y reconocible a simple vista en la base y el CSV.
+  const emailFinal = email || `invitado+${telefono.replace(/\D/g, "")}@sinergeticos.com`;
 
   // números de prueba de David: se saltan el candado anti-duplicados
   const esPrueba = TELEFONOS_PRUEBA.includes(telefono);
@@ -73,7 +79,7 @@ export async function POST(req: NextRequest) {
     //   1. que ya esté registrado A ESTE evento, o
     //   2. que nos haya comprado antes.
     const { data: bloqueada, error: rpcErr } = await service.rpc("persona_bloqueada", {
-      p_email: email,
+      p_email: emailFinal,
       p_telefono: telefono,
       p_event_tk_id: eventId,
     });
@@ -84,7 +90,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Esa persona ya está registrada a este evento o ya es cliente nuestro. Puedes inscribirla a otro evento.",
+            "Oops — esta persona ya está registrada en nuestra base, a este evento u otro 🙈. Puedes invitar a alguien más.",
         },
         { status: 409 },
       );
@@ -98,10 +104,10 @@ export async function POST(req: NextRequest) {
       .select("id", { count: "exact", head: true })
       .eq("status", "emitido")
       .eq("event_tk_id", eventId)
-      .or(`telefono.eq.${telefono},email.eq.${email}`);
+      .or(`telefono.eq.${telefono},email.eq.${emailFinal}`);
     if ((dupCount ?? 0) > 0) {
       return NextResponse.json(
-        { error: "Esa persona ya fue inscrita a este evento por un afiliado." },
+        { error: "Oops — esta persona ya fue inscrita a este evento 🙈. Puedes invitar a alguien más." },
         { status: 409 },
       );
     }
@@ -128,7 +134,7 @@ export async function POST(req: NextRequest) {
       event_tk_id: eventId,
       event_name: body.event_name?.trim() ?? "",
       nombre,
-      email,
+      email: emailFinal,
       telefono,
       pais: (body.pais === "US" ? "US" : "MX") as Pais,
       status: "enviando",
@@ -140,7 +146,7 @@ export async function POST(req: NextRequest) {
   }
 
   // boleto GRATIS vía la API interna de la boletera
-  const res = await emitirBoleto({ eventId, nombre, email, telefono, leadId: insc.id });
+  const res = await emitirBoleto({ eventId, nombre, email: emailFinal, telefono, leadId: insc.id });
   if (!res.ok) {
     await service
       .from("af_inscripciones")
