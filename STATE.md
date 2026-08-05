@@ -32,6 +32,34 @@ gratuitos y el boleto le llega al invitado por WhatsApp al instante.
 
 ---
 
+## Sesión 18b — 4-ago-2026 — Correcciones de Manuel (misma noche, desplegadas)
+
+Cuatro ajustes dictados por Manuel viendo el portal vivo, más un rebase sobre el hotfix
+de David (`8b0dc72`, el Pase de Afiliado sigue emitiéndose como `free`):
+
+- **"Utilidad proyectada" ≠ calculadora**: se eliminó el proyector de sliders. Lo pedido:
+  en **Mis inscritos**, columna *Comisión* por invitado — importe real con etiqueta
+  **"Comisión confirmada"** si el equipo ya capturó su compra, o **"hasta $X"** con
+  etiqueta **"Proyectado"** (paquete 12m según el `pais` del evento del inscrito) —
+  más tarjeta resumen con ambos totales por moneda y CSV con las dos columnas nuevas.
+- **La geografía no la elige nadie**: en la captura de ventas del admin queda FIJA
+  cuando la venta viene de una inscripción ("la define el evento del referido");
+  los chips solo viven en captura libre. El servidor ya la imponía desde antes.
+- **Mapa vivo**: los pines salen de TODOS los eventos registrados (`/api/eventos`),
+  agrupados por ciudad (gazetteer de 39 ciudades MX/US con proyección real);
+  tooltips con evento/fecha/venue/comisión; eventos fuera del recorte del mapa o sin
+  ciudad reconocida aparecen como fichas bajo el mapa. Se actualiza solo.
+- **"Hazlo más llamativo" (Tu equipo +1)**: rediseño estructural — 20% EXTRA gigante
+  en dorado como héroe, escena SVG de tu red, CTA con brillo y código de referido
+  tipo cupón. **Tutoriales con "capturas"**: mini-pantallas recreadas en HTML/CSS
+  (form de inscribir, WhatsApp del pase VIP, tabla de comisiones viva, línea de
+  tiempo del pago, liga personal).
+
+Deploy verificado vía GitHub Deployments: sha `00c809b` → Production **success**.
+Lección aplicada tras el push rechazado: **rebase → build → push**, jamás a ciegas.
+
+---
+
 ## Sesión 18 — 4-ago-2026 — SYNERGY +1: rebrand completo, neumorfismo, red +1, ventas y presentación
 
 La expansión más grande del portal desde su nacimiento, dictada por Manuel. Construida
