@@ -21,10 +21,29 @@ esto no se puede premiar bien ni detectar listas infladas.
 endpoint por lote autenticado con la key interna que ya usamos.
 **Detalle completo, con las dos opciones técnicas:** `docs/PETICION-BOLETERA-ASISTENCIA.md`.
 
-### 1.2 Nuevo tipo de boleto: "cortesía referido"
-**Qué:** un tipo de boleto distinto del cortesía del Club, **en color naranja**.
-**Por qué:** para distinguir en la puerta y en los reportes quién llegó por un afiliado.
-**Pedido en la junta del 3-ago.**
+### 1.2 🔴 Habilitar el "Pase de Afiliado" en la API interna — BLOQUEANTE
+
+**El boleto YA EXISTE** (lo crearon el 4-ago): en su panel se llama **"Boleto de
+Afiliados"**, es el naranja, y por dentro su identificador es **`general`**
+(su bundle mapea `general → "Boleto de Afiliados"`; buscar "afiliado" o "affiliate" en su
+base no devuelve nada). La plantilla se actualizó el 4-ago 17:19 y
+`general_ticket_enabled` está activo en todos los eventos próximos, con `general_price`
+vacío — o sea, sigue siendo cortesía.
+
+**El problema:** `POST /api/internal/tickets` —la ruta que usa el portal— valida el tipo
+contra un enum que **solo acepta `free`, `club-general` y `club-vip`**. Mandar `general`
+devuelve:
+
+```
+400 · Invalid enum value. Expected 'free' | 'club-general' | 'club-vip', received 'general'
+```
+
+**Qué pedir:** que agreguen `general` (o el identificador definitivo del Pase de Afiliado)
+a ese enum de `/api/internal/tickets`.
+
+**Mientras tanto** el portal sigue emitiendo `free` — el mismo boleto que dan las
+landings, sin forma de distinguir en la puerta quién llegó por un afiliado. En cuanto lo
+habiliten, el cambio de nuestro lado es UNA línea en `lib/boletera.ts`.
 
 ---
 
