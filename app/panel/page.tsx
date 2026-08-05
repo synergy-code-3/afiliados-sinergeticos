@@ -15,6 +15,15 @@ interface Inscripcion {
   status: string;
   ticket_id: string | null;
   created_at: string;
+  /** "MX" | "US" — geografía del evento; define la comisión proyectada */
+  pais: string | null;
+}
+
+/** Venta ya capturada por el equipo para una inscripción concreta. */
+export interface VentaDeInscripcion {
+  comisionCents: number;
+  moneda: string;
+  estado: string;
 }
 
 export interface Ingreso {
@@ -100,6 +109,7 @@ export default async function Panel() {
   let equipo: MiembroEquipo[] = [];
   let overridePorMoneda: TotalMoneda[] = [];
   let misComisiones: MisComisiones | null = null;
+  const ventasPorInscripcion: Record<string, VentaDeInscripcion> = {};
 
   if (dbListo && perfil) {
     const service = supabaseService();
@@ -171,10 +181,21 @@ export default async function Panel() {
 
     const { data: misVentas } = await service
       .from("af_ventas")
-      .select("comision_cents, moneda, estado")
+      .select("comision_cents, moneda, estado, inscripcion_id")
       .eq("afiliado_id", user.id)
-      .returns<FilaVenta[]>();
+      .returns<(FilaVenta & { inscripcion_id: string | null })[]>();
     const propias = misVentas ?? [];
+
+    // por inscrito: "Comisión confirmada" en la tabla de Mis inscritos
+    for (const v of propias) {
+      if (v.inscripcion_id && v.estado !== "rechazada") {
+        ventasPorInscripcion[v.inscripcion_id] = {
+          comisionCents: Number(v.comision_cents),
+          moneda: v.moneda,
+          estado: v.estado,
+        };
+      }
+    }
     misComisiones = {
       pendiente: sumaPorMoneda(propias.filter((v) => v.estado === "pendiente"), "comision_cents"),
       validada: sumaPorMoneda(propias.filter((v) => v.estado === "validada"), "comision_cents"),
@@ -184,7 +205,7 @@ export default async function Panel() {
 
   const { data: inscripciones } = await supabase
     .from("af_inscripciones")
-    .select("id, event_name, nombre, email, telefono, status, ticket_id, created_at")
+    .select("id, event_name, nombre, email, telefono, status, ticket_id, created_at, pais")
     .eq("afiliado_id", user.id)
     .order("created_at", { ascending: false })
     .returns<Inscripcion[]>();
@@ -226,6 +247,7 @@ export default async function Panel() {
       equipo={equipo}
       overridePorMoneda={overridePorMoneda}
       misComisiones={misComisiones}
+      ventasPorInscripcion={ventasPorInscripcion}
     />
   );
 }

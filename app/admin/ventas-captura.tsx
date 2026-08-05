@@ -508,18 +508,28 @@ export default function Capturar({ onCapturada }: { onCapturada: () => void }) {
 
           <div>
             <span className="label">Geografía del evento</span>
-            <div className="flex flex-wrap gap-2">
-              {GEOGRAFIAS.map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setGeografia(g)}
-                  className={`${CHIP_BASE} ${geografia === g ? CHIP_ON : CHIP_OFF}`}
-                >
-                  {GEO_LABEL[g]}
-                </button>
-              ))}
-            </div>
+            {seleccion ? (
+              // Con inscripción, la geografía LA DEFINE EL EVENTO del referido
+              // (regla de Manuel: nadie la decide a mano) — el servidor también
+              // la impone, esto solo evita ofrecer una palanca falsa.
+              <p className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-white/10 px-4 py-2.5 text-sm font-bold">
+                {GEO_LABEL[geografia]}
+                <span className="font-normal text-white/45">· la define el evento del referido</span>
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {GEOGRAFIAS.map((g) => (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setGeografia(g)}
+                    className={`${CHIP_BASE} ${geografia === g ? CHIP_ON : CHIP_OFF}`}
+                  >
+                    {GEO_LABEL[g]}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

@@ -1,6 +1,6 @@
 "use client";
 
-/** El mapa de tu oportunidad — gira de agosto 2026 (Synergy +1).
+/** El mapa de tu oportunidad — eventos abiertos, en vivo (Synergy +1).
  *
  * SVG dibujado a mano sobre proyección equirectangular:
  *   x = (lon + 125) * 25          →  -125°O … -85°O  ⇒  0 … 1000
@@ -9,11 +9,18 @@
  * sin re-dibujar nada. Los contornos son simplificados pero geográficos:
  * Baja California, Yucatán, el Río Bravo y las costas salen de puntos reales.
  *
+ * Los pines ya NO son fijos: vienen de /api/eventos (eventos activos futuros
+ * con boleto de cortesía, mismo endpoint que usa el formulario de invitados).
+ * Cada evento se ubica buscando su ciudad en el GAZETTEER local. Si la ciudad
+ * no se reconoce — o cae fuera del recorte del mapa (38°N / 85°O), como
+ * Chicago, Miami o Nueva York — el evento no se pierde: aparece como ficha
+ * bajo el mapa.
+ *
  * Cero dependencias nuevas. Los montos vienen de lib/comisiones —
  * aquí no vive ningún precio.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   COMISIONES_PAQUETE,
   PAQUETE_LABEL,
@@ -26,32 +33,238 @@ import {
 const VB_ANCHO = 1000;
 const VB_ALTO = 640;
 
+/** Proyección del encabezado: de coordenadas reales al viewBox. */
+const xDeLon = (lon: number): number => (lon + 125) * 25;
+const yDeLat = (lat: number): number => (38 - lat) * (VB_ALTO / 24);
+
 type PosEtiqueta = "arriba" | "abajo" | "izq" | "der";
 
-interface CiudadGira {
+interface CiudadGazetteer {
   nombre: string;
-  pais: Geografia;
-  /** Coordenadas dentro del viewBox (ver fórmula del encabezado). */
-  x: number;
-  y: number;
-  fecha: string;
-  horaLocal: string;
-  horaCdmx: string;
-  /** De qué lado va el nombre, para que no se encimen en el racimo de Texas. */
+  /** Alias en minúsculas y sin acentos; se buscan como subcadena del evento. */
+  alias: readonly string[];
+  lat: number;
+  lon: number;
+  /** De qué lado va el nombre, para que no se encimen en racimos (Texas, Bajío). */
   etiqueta: PosEtiqueta;
 }
 
-/** En orden cronológico de la gira — la caravana las recorre así. */
-const CIUDADES: readonly CiudadGira[] = [
-  { nombre: "Austin", pais: "US", x: 682, y: 206, fecha: "Martes 4 de agosto", horaLocal: "7:00 pm", horaCdmx: "6:00 pm", etiqueta: "arriba" },
-  { nombre: "Tijuana", pais: "MX", x: 199, y: 146, fecha: "Martes 4 de agosto", horaLocal: "7:00 pm", horaCdmx: "9:00 pm", etiqueta: "izq" },
-  { nombre: "Ciudad Juárez", pais: "MX", x: 463, y: 167, fecha: "Miércoles 5 de agosto", horaLocal: "6:00 pm", horaCdmx: "5:00 pm", etiqueta: "abajo" },
-  { nombre: "San Antonio", pais: "US", x: 663, y: 229, fecha: "Miércoles 5 de agosto", horaLocal: "7:00 pm", horaCdmx: "6:00 pm", etiqueta: "abajo" },
-  { nombre: "Houston", pais: "US", x: 741, y: 220, fecha: "Jueves 6 de agosto", horaLocal: "7:00 pm", horaCdmx: "6:00 pm", etiqueta: "der" },
-  { nombre: "Dallas", pais: "US", x: 705, y: 139, fecha: "Jueves 6 de agosto", horaLocal: "9:00 pm", horaCdmx: "8:00 pm", etiqueta: "arriba" },
+/** Ciudades donde el negocio hace eventos. Las que proyectan fuera del
+ * recorte del mapa (Chicago, Miami, NY…) igual viven aquí: el matching las
+ * reconoce y sus eventos se muestran como fichas bajo el mapa. */
+const GAZETTEER: readonly CiudadGazetteer[] = [
+  // México
+  { nombre: "Tijuana", alias: ["tijuana"], lat: 32.5149, lon: -117.0382, etiqueta: "izq" },
+  { nombre: "Mexicali", alias: ["mexicali"], lat: 32.6245, lon: -115.4523, etiqueta: "abajo" },
+  { nombre: "Ciudad Juárez", alias: ["ciudad juarez", "cd. juarez", "cd juarez", "juarez"], lat: 31.6904, lon: -106.4245, etiqueta: "abajo" },
+  { nombre: "Chihuahua", alias: ["chihuahua"], lat: 28.632, lon: -106.0691, etiqueta: "der" },
+  { nombre: "Hermosillo", alias: ["hermosillo"], lat: 29.0729, lon: -110.9559, etiqueta: "der" },
+  { nombre: "Culiacán", alias: ["culiacan"], lat: 24.8091, lon: -107.394, etiqueta: "der" },
+  { nombre: "Monterrey", alias: ["monterrey"], lat: 25.6866, lon: -100.3161, etiqueta: "der" },
+  { nombre: "Guadalajara", alias: ["guadalajara", "zapopan", "gdl"], lat: 20.6597, lon: -103.3496, etiqueta: "izq" },
+  { nombre: "Puerto Vallarta", alias: ["puerto vallarta", "vallarta"], lat: 20.6534, lon: -105.2253, etiqueta: "izq" },
+  { nombre: "Aguascalientes", alias: ["aguascalientes"], lat: 21.8853, lon: -102.2916, etiqueta: "arriba" },
+  { nombre: "León", alias: ["leon"], lat: 21.125, lon: -101.686, etiqueta: "arriba" },
+  { nombre: "Querétaro", alias: ["queretaro"], lat: 20.5888, lon: -100.3899, etiqueta: "der" },
+  { nombre: "Morelia", alias: ["morelia"], lat: 19.706, lon: -101.195, etiqueta: "abajo" },
+  { nombre: "Toluca", alias: ["toluca"], lat: 19.2827, lon: -99.6557, etiqueta: "abajo" },
+  { nombre: "CDMX", alias: ["cdmx", "ciudad de mexico", "mexico city"], lat: 19.4326, lon: -99.1332, etiqueta: "arriba" },
+  { nombre: "Puebla", alias: ["puebla"], lat: 19.0414, lon: -98.2063, etiqueta: "der" },
+  { nombre: "Veracruz", alias: ["veracruz"], lat: 19.1738, lon: -96.1342, etiqueta: "der" },
+  { nombre: "Oaxaca", alias: ["oaxaca"], lat: 17.0732, lon: -96.7266, etiqueta: "abajo" },
+  { nombre: "Mérida", alias: ["merida"], lat: 20.9674, lon: -89.5926, etiqueta: "arriba" },
+  { nombre: "Cancún", alias: ["cancun"], lat: 21.1619, lon: -86.8515, etiqueta: "izq" },
+  // Estados Unidos
+  { nombre: "Austin", alias: ["austin"], lat: 30.2672, lon: -97.7431, etiqueta: "arriba" },
+  { nombre: "Dallas", alias: ["dallas"], lat: 32.7767, lon: -96.797, etiqueta: "arriba" },
+  { nombre: "Houston", alias: ["houston"], lat: 29.7604, lon: -95.3698, etiqueta: "der" },
+  { nombre: "San Antonio", alias: ["san antonio"], lat: 29.4241, lon: -98.4936, etiqueta: "abajo" },
+  { nombre: "El Paso", alias: ["el paso"], lat: 31.7619, lon: -106.485, etiqueta: "arriba" },
+  { nombre: "Phoenix", alias: ["phoenix"], lat: 33.4484, lon: -112.074, etiqueta: "arriba" },
+  { nombre: "Los Ángeles", alias: ["los angeles"], lat: 34.0522, lon: -118.2437, etiqueta: "der" },
+  { nombre: "San José", alias: ["san jose", "fremont"], lat: 37.3382, lon: -121.8863, etiqueta: "der" },
+  { nombre: "Sacramento", alias: ["sacramento"], lat: 38.5816, lon: -121.4944, etiqueta: "der" },
+  { nombre: "Fresno", alias: ["fresno"], lat: 36.7378, lon: -119.7871, etiqueta: "der" },
+  { nombre: "Las Vegas", alias: ["las vegas"], lat: 36.1699, lon: -115.1398, etiqueta: "der" },
+  { nombre: "Denver", alias: ["denver"], lat: 39.7392, lon: -104.9903, etiqueta: "abajo" },
+  { nombre: "Chicago", alias: ["chicago"], lat: 41.8781, lon: -87.6298, etiqueta: "abajo" },
+  { nombre: "Atlanta", alias: ["atlanta"], lat: 33.749, lon: -84.388, etiqueta: "izq" },
+  { nombre: "Miami", alias: ["miami"], lat: 25.7617, lon: -80.1918, etiqueta: "izq" },
+  { nombre: "Orlando", alias: ["orlando"], lat: 28.5383, lon: -81.3792, etiqueta: "izq" },
+  { nombre: "Tampa", alias: ["tampa"], lat: 27.9506, lon: -82.4572, etiqueta: "izq" },
+  { nombre: "New York", alias: ["new york", "nueva york", "nyc"], lat: 40.7128, lon: -74.006, etiqueta: "izq" },
+  { nombre: "Boston", alias: ["boston"], lat: 42.3601, lon: -71.0589, etiqueta: "izq" },
 ];
 
+/** Lo que devuelve /api/eventos (el `pais` ya viene resuelto por evento). */
+interface EventoApi {
+  id: string;
+  name: string;
+  date: string;
+  venue: string;
+  pais: Geografia;
+}
+
+type Carga =
+  | { estado: "cargando" }
+  | { estado: "listo"; eventos: readonly EventoApi[] }
+  | { estado: "error" };
+
 const PAQUETES: readonly Paquete[] = ["3m", "6m", "12m"];
+
+/* ── Matching de ciudades ─────────────────────────────────────────────────────
+ * Se normaliza (minúsculas, sin acentos) y se busca cada alias como subcadena
+ * del nombre del evento; el venue es el respaldo. Gana la coincidencia con el
+ * alias más largo — así "Monterrey" (9) le gana a "León" (4) aunque el venue
+ * diga "Nuevo León". */
+
+const normalizar = (t: string): string =>
+  t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+/** Nombres de lugar que CONTIENEN a otra ciudad del gazetteer y engañarían al
+ * matching por subcadena: se borran del texto antes de comparar. */
+const FALSOS_AMIGOS: readonly string[] = ["nuevo leon", "benito juarez", "san jose del cabo"];
+
+const limpiarFalsosAmigos = (t: string): string =>
+  FALSOS_AMIGOS.reduce((acc, falso) => acc.split(falso).join(" "), t);
+
+const buscarCiudad = (texto: string): CiudadGazetteer | null => {
+  const limpio = limpiarFalsosAmigos(normalizar(texto));
+  const mejor = GAZETTEER.reduce<{ ciudad: CiudadGazetteer; largo: number } | null>(
+    (acc, ciudad) => {
+      const largo = ciudad.alias.reduce(
+        (max, a) => (limpio.includes(a) && a.length > max ? a.length : max),
+        0,
+      );
+      if (largo === 0) return acc;
+      return acc === null || largo > acc.largo ? { ciudad, largo } : acc;
+    },
+    null,
+  );
+  return mejor?.ciudad ?? null;
+};
+
+/** El nombre del evento manda ("SEED Tijuana"); el venue es el respaldo. */
+const ciudadDeEvento = (e: EventoApi): CiudadGazetteer | null =>
+  buscarCiudad(e.name) ?? (e.venue ? buscarCiudad(e.venue) : null);
+
+/** El mapa recorta en 38°N y 85°O: lo que proyecta fuera no se pinta como pin. */
+const dentroDelMapa = (x: number, y: number): boolean =>
+  x >= 10 && x <= VB_ANCHO - 10 && y >= 40 && y <= VB_ALTO - 10;
+
+/* ── Reparto: pines agrupados por ciudad + fichas para el resto ── */
+
+interface Pin {
+  ciudad: CiudadGazetteer;
+  x: number;
+  y: number;
+  pais: Geografia;
+  eventos: readonly EventoApi[];
+}
+
+interface Suelto {
+  evento: EventoApi;
+  /** true → sin ciudad reconocida ("ubicación por confirmar"). */
+  sinCiudad: boolean;
+}
+
+function repartir(eventos: readonly EventoApi[]): {
+  pines: readonly Pin[];
+  sueltos: readonly Suelto[];
+} {
+  const clasificados = eventos.map((evento) => {
+    const ciudad = ciudadDeEvento(evento);
+    const enMapa = ciudad !== null && dentroDelMapa(xDeLon(ciudad.lon), yDeLat(ciudad.lat));
+    return { evento, ciudad, enMapa };
+  });
+  const pines = GAZETTEER.flatMap((ciudad): Pin[] => {
+    const delPin = clasificados
+      .filter((c) => c.enMapa && c.ciudad === ciudad)
+      .map((c) => c.evento);
+    const primero = delPin[0];
+    if (!primero) return [];
+    return [
+      { ciudad, x: xDeLon(ciudad.lon), y: yDeLat(ciudad.lat), pais: primero.pais, eventos: delPin },
+    ];
+  });
+  const sueltos = clasificados
+    .filter((c) => !c.enMapa)
+    .map((c) => ({ evento: c.evento, sinCiudad: c.ciudad === null }));
+  return { pines, sueltos };
+}
+
+/* ── Validación del borde: nunca confiar en la respuesta de la red ── */
+
+const esGeografia = (v: unknown): v is Geografia => v === "MX" || v === "US";
+
+const leerEvento = (v: unknown): EventoApi | null => {
+  if (typeof v !== "object" || v === null) return null;
+  const e = v as Record<string, unknown>;
+  if (
+    typeof e.id !== "string" ||
+    typeof e.name !== "string" ||
+    typeof e.date !== "string" ||
+    !esGeografia(e.pais)
+  ) {
+    return null;
+  }
+  return {
+    id: e.id,
+    name: e.name,
+    date: e.date,
+    venue: typeof e.venue === "string" ? e.venue : "",
+    pais: e.pais,
+  };
+};
+
+/* ── Textos ── */
+
+const nombrePais = (g: Geografia): string => (g === "MX" ? "México" : "Estados Unidos");
+
+const fechaLarga = (iso: string): string => {
+  const f = new Date(iso);
+  if (Number.isNaN(f.getTime())) return "Fecha por confirmar";
+  const texto = f.toLocaleDateString("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+};
+
+/** "Ganas de $2,500 a $3,000 por persona…" — todo sale de lib/comisiones. */
+const textoComision = (g: Geografia): string => {
+  const montos = PAQUETES.map((p) => COMISIONES_PAQUETE[g][p]);
+  const moneda = monedaDe(g);
+  const min = dinero(Math.min(...montos), moneda);
+  const max = dinero(Math.max(...montos), moneda);
+  const nombreMoneda = moneda === "MXN" ? "pesos mexicanos" : "dólares";
+  return `Ganas de ${min} a ${max} por persona que se une al Club (${nombreMoneda})`;
+};
+
+const ariaPin = (pin: Pin): string => {
+  const cuantos = pin.eventos.length > 1 ? `${pin.eventos.length} eventos. ` : "";
+  const lista = pin.eventos
+    .map((e) => `${e.name}: ${fechaLarga(e.date)}${e.venue ? `, en ${e.venue}` : ""}`)
+    .join(". ");
+  return `${pin.ciudad.nombre}, ${nombrePais(pin.pais)}. ${cuantos}${lista}. ${textoComision(pin.pais)}.`;
+};
+
+const pct = (v: number, total: number): string => `${((v / total) * 100).toFixed(2)}%`;
+
+/** El mapa recorta los tooltips (overflow hidden): cerca de un borde, el
+ * tooltip se corre hacia adentro; cerca del fondo, se abre hacia arriba. */
+const claseTooltip = (pin: Pin): string => {
+  const h =
+    pin.x < VB_ANCHO * 0.15
+      ? " mco-tooltip-izq"
+      : pin.x > VB_ANCHO * 0.85
+        ? " mco-tooltip-der"
+        : "";
+  const v = pin.y > VB_ALTO * 0.66 ? " mco-tooltip-arriba" : "";
+  return h + v;
+};
 
 /* ── Contornos ────────────────────────────────────────────────────────────────
  * La frontera MX–US es la MISMA polilínea en ambos países para que embonen:
@@ -85,24 +298,6 @@ const D_ESTADOS =
   "M625 40 L625 92 L774 117 L782 173 L779 229 " + // Río Rojo y frontera con Luisiana
   "M209 40 L259 80 L258 141"; // límite este de California
 
-/** Recorrido de la caravana, ciudad por ciudad en orden de la gira. */
-const D_RUTA =
-  "M682 206 C560 150 330 105 199 146 " +
-  "C300 195 385 192 463 167 " +
-  "C535 195 615 205 663 229 " +
-  "C692 252 722 244 741 220 " +
-  "C762 190 733 162 705 139";
-
-const nombrePais = (g: Geografia): string => (g === "MX" ? "México" : "Estados Unidos");
-
-const ariaCiudad = (c: CiudadGira): string =>
-  `${c.nombre}, ${nombrePais(c.pais)}. Reunión informativa: ${c.fecha}, ` +
-  `${c.horaLocal} hora local (${c.horaCdmx} hora Ciudad de México).`;
-
-const pct = (v: number, total: number): string => `${((v / total) * 100).toFixed(2)}%`;
-
-const RECORRIDO = CIUDADES.map((c, i) => `${i + 1} ${c.nombre}`).join(" → ");
-
 function TarjetaComision({ g }: { g: Geografia }) {
   const moneda = monedaDe(g);
   return (
@@ -126,7 +321,28 @@ function TarjetaComision({ g }: { g: Geografia }) {
 }
 
 export default function MapaComisiones() {
-  const [activo, setActivo] = useState<number | null>(null);
+  const [carga, setCarga] = useState<Carga>({ estado: "cargando" });
+  const [activo, setActivo] = useState<string | null>(null);
+
+  // Mismo patrón que panel-client: fetch simple a /api/eventos al montar.
+  useEffect(() => {
+    let cancelado = false;
+    fetch("/api/eventos")
+      .then((r) => r.json())
+      .then((d: { eventos?: unknown[] }) => {
+        if (cancelado) return;
+        const eventos = Array.isArray(d?.eventos)
+          ? d.eventos.map(leerEvento).filter((e): e is EventoApi => e !== null)
+          : [];
+        setCarga({ estado: "listo", eventos });
+      })
+      .catch(() => {
+        if (!cancelado) setCarga({ estado: "error" });
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (activo === null) return;
@@ -137,16 +353,24 @@ export default function MapaComisiones() {
     return () => window.removeEventListener("keydown", alTeclear);
   }, [activo]);
 
+  const { pines, sueltos } = useMemo(
+    () => repartir(carga.estado === "listo" ? carga.eventos : []),
+    [carga],
+  );
+  const pinActivo = pines.find((p) => p.ciudad.nombre === activo) ?? null;
+  const sinEventos =
+    carga.estado === "error" || (carga.estado === "listo" && carga.eventos.length === 0);
+
   return (
     <section className="mco mt-8" aria-labelledby="mco-titulo">
-      <span className="sec-tag">La gira · Agosto 2026</span>
+      <span className="sec-tag">Próximos eventos</span>
       <h2 id="mco-titulo" className="mt-2 text-2xl font-extrabold sm:text-3xl">
         El mapa de tu oportunidad
       </h2>
       <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-white/60">
-        Seis ciudades en tres días, entre México y Estados Unidos. Toca cada punto
-        para ver la fecha y la hora de la reunión informativa — y aquí mismo, lo
-        que ganas por cada persona que se une al Club.
+        Los eventos abiertos, en vivo — este mapa se actualiza solo. Toca cada
+        punto para ver la fecha y el lugar, y aquí mismo lo que ganas por cada
+        persona que se une al Club.
       </p>
 
       <div className="mco-cuerpo">
@@ -181,50 +405,54 @@ export default function MapaComisiones() {
               <text x="565" y="425" textAnchor="middle" className="mco-pais-nombre">
                 México
               </text>
-
-              <path className="mco-ruta-base" d={D_RUTA} />
-              <path className="mco-ruta-caravana" d={D_RUTA} />
             </svg>
 
-            {CIUDADES.map((c, i) => {
-              const abierta = activo === i;
-              const tono = c.pais === "MX" ? "mx" : "us";
+            {pines.map((pin) => {
+              const abierta = activo === pin.ciudad.nombre;
+              const tono = pin.pais === "MX" ? "mx" : "us";
               return (
                 <div
-                  key={c.nombre}
+                  key={pin.ciudad.nombre}
                   className="mco-ciudad"
-                  style={{ left: pct(c.x, VB_ANCHO), top: pct(c.y, VB_ALTO) }}
+                  style={{ left: pct(pin.x, VB_ANCHO), top: pct(pin.y, VB_ALTO) }}
                 >
                   <button
                     type="button"
                     className="mco-pin"
-                    aria-label={ariaCiudad(c)}
+                    aria-label={ariaPin(pin)}
                     aria-expanded={abierta}
-                    onClick={() => setActivo(i)}
-                    onMouseEnter={() => setActivo(i)}
-                    onMouseLeave={() => setActivo((prev) => (prev === i ? null : prev))}
-                    onFocus={() => setActivo(i)}
-                    onBlur={() => setActivo((prev) => (prev === i ? null : prev))}
+                    onClick={() => setActivo(pin.ciudad.nombre)}
+                    onMouseEnter={() => setActivo(pin.ciudad.nombre)}
+                    onMouseLeave={() => setActivo((prev) => (prev === pin.ciudad.nombre ? null : prev))}
+                    onFocus={() => setActivo(pin.ciudad.nombre)}
+                    onBlur={() => setActivo((prev) => (prev === pin.ciudad.nombre ? null : prev))}
                   >
                     <span className={`mco-onda mco-onda-${tono}`} aria-hidden="true" />
                     <span className={`mco-onda mco-onda-2 mco-onda-${tono}`} aria-hidden="true" />
                     <span className={`mco-punto mco-fondo-${tono}`} aria-hidden="true">
-                      {i + 1}
+                      {pin.eventos.length > 1 ? pin.eventos.length : ""}
                     </span>
-                    <span className={`mco-eti mco-eti-${c.etiqueta}`} aria-hidden="true">
-                      {c.nombre}
+                    <span className={`mco-eti mco-eti-${pin.ciudad.etiqueta}`} aria-hidden="true">
+                      {pin.ciudad.nombre}
                     </span>
                   </button>
 
                   {/* El botón ya dice todo esto en su aria-label. */}
-                  <div className={`mco-tooltip${abierta ? " es-visible" : ""}`} aria-hidden="true">
+                  <div
+                    className={`mco-tooltip${claseTooltip(pin)}${abierta ? " es-visible" : ""}`}
+                    aria-hidden="true"
+                  >
                     <p className="mco-tt-ciudad">
-                      {c.nombre} · {nombrePais(c.pais)}
+                      {pin.ciudad.nombre} · {nombrePais(pin.pais)}
                     </p>
-                    <p className="mco-tt-fecha">{c.fecha}</p>
-                    <p className="mco-tt-horas">
-                      {c.horaLocal} hora local · {c.horaCdmx} CDMX
-                    </p>
+                    {pin.eventos.map((e) => (
+                      <div key={e.id} className="mco-tt-evento">
+                        <p className="mco-tt-nombre">{e.name}</p>
+                        <p className="mco-tt-fecha">{fechaLarga(e.date)}</p>
+                        {e.venue ? <p className="mco-tt-lugar">{e.venue}</p> : null}
+                      </div>
+                    ))}
+                    <p className="mco-tt-comision">{textoComision(pin.pais)}.</p>
                   </div>
                 </div>
               );
@@ -238,50 +466,87 @@ export default function MapaComisiones() {
         </div>
       </div>
 
-      {/* En pantallas chicas los pines quedan muy juntos en Texas:
-          estas fichas son el camino cómodo con el pulgar. */}
-      <div className="mco-chips">
-        {CIUDADES.map((c, i) => (
-          <button
-            key={c.nombre}
-            type="button"
-            className={`mco-chip${activo === i ? " es-activa" : ""}`}
-            aria-label={ariaCiudad(c)}
-            aria-expanded={activo === i}
-            onClick={() => setActivo((prev) => (prev === i ? null : i))}
-          >
-            <span
-              className={`mco-chip-punto ${c.pais === "MX" ? "mco-fondo-mx" : "mco-fondo-us"}`}
-              aria-hidden="true"
-            />
-            {i + 1} · {c.nombre}
-          </button>
-        ))}
-      </div>
+      {carga.estado === "cargando" ? (
+        <>
+          <div className="mco-esqueletos" aria-hidden="true">
+            <span className="mco-esqueleto" />
+            <span className="mco-esqueleto" />
+            <span className="mco-esqueleto" />
+          </div>
+          <p className="sr-only" role="status">
+            Cargando los próximos eventos…
+          </p>
+        </>
+      ) : null}
 
-      <p className="mt-3 text-xs leading-relaxed text-white/40">
-        La línea punteada marca el recorrido de la gira: {RECORRIDO}.
-      </p>
+      {sinEventos ? (
+        <p className="mco-vacio">Pronto anunciaremos los próximos eventos aquí.</p>
+      ) : null}
+
+      {/* En pantallas chicas los pines quedan muy juntos en los racimos:
+          estas fichas son el camino cómodo con el pulgar. */}
+      {pines.length > 0 ? (
+        <div className="mco-chips">
+          {pines.map((pin) => (
+            <button
+              key={pin.ciudad.nombre}
+              type="button"
+              className={`mco-chip${activo === pin.ciudad.nombre ? " es-activa" : ""}`}
+              aria-label={ariaPin(pin)}
+              aria-expanded={activo === pin.ciudad.nombre}
+              onClick={() =>
+                setActivo((prev) => (prev === pin.ciudad.nombre ? null : pin.ciudad.nombre))
+              }
+            >
+              <span
+                className={`mco-chip-punto ${pin.pais === "MX" ? "mco-fondo-mx" : "mco-fondo-us"}`}
+                aria-hidden="true"
+              />
+              {pin.ciudad.nombre}
+              {pin.eventos.length > 1 ? ` · ${pin.eventos.length}` : ""}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {/* Eventos que no caben en el mapa (ciudad sin reconocer o fuera del
+          recorte): no se pierden, viven aquí. */}
+      {sueltos.length > 0 ? (
+        <div className="mco-sueltos">
+          {sueltos.map(({ evento, sinCiudad }) => (
+            <div key={evento.id} className="mco-suelto">
+              <p className="mco-suelto-nombre">{evento.name}</p>
+              <p className="mco-suelto-fecha">
+                {fechaLarga(evento.date)}
+                {sinCiudad ? <span className="mco-suelto-tag"> · ubicación por confirmar</span> : null}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {/* Panel fijo inferior: el "tooltip" de teléfono. El envoltorio con
           aria-live existe siempre para que el lector de pantalla anuncie. */}
       <div aria-live="polite">
-        {activo !== null ? (
+        {pinActivo !== null ? (
           <div className="mco-panel">
             <span
-              className={`mco-punto mco-punto-panel ${CIUDADES[activo].pais === "MX" ? "mco-fondo-mx" : "mco-fondo-us"}`}
+              className={`mco-punto mco-punto-panel ${pinActivo.pais === "MX" ? "mco-fondo-mx" : "mco-fondo-us"}`}
               aria-hidden="true"
             >
-              {activo + 1}
+              {pinActivo.eventos.length > 1 ? pinActivo.eventos.length : ""}
             </span>
             <div className="mco-panel-info">
               <p className="mco-tt-ciudad">
-                {CIUDADES[activo].nombre} · {nombrePais(CIUDADES[activo].pais)}
+                {pinActivo.ciudad.nombre} · {nombrePais(pinActivo.pais)}
               </p>
-              <p className="mco-tt-fecha">{CIUDADES[activo].fecha}</p>
-              <p className="mco-tt-horas">
-                {CIUDADES[activo].horaLocal} hora local · {CIUDADES[activo].horaCdmx} CDMX
-              </p>
+              {pinActivo.eventos.map((e) => (
+                <p key={e.id} className="mco-tt-fecha">
+                  {e.name} — {fechaLarga(e.date)}
+                  {e.venue ? ` · ${e.venue}` : ""}
+                </p>
+              ))}
+              <p className="mco-tt-lugar">{textoComision(pinActivo.pais)}.</p>
             </div>
             <button type="button" className="mco-panel-cerrar" onClick={() => setActivo(null)}>
               Cerrar
@@ -345,16 +610,6 @@ export default function MapaComisiones() {
           font-weight: 700;
           letter-spacing: 0.42em;
           text-transform: uppercase;
-        }
-
-        .mco-ruta-base { fill: none; stroke: rgba(25, 225, 109, 0.13); stroke-width: 5; stroke-linecap: round; }
-        .mco-ruta-caravana {
-          fill: none;
-          stroke: var(--accent, #19e16d);
-          stroke-width: 2.25;
-          stroke-linecap: round;
-          stroke-dasharray: 4 12;
-          opacity: 0.9;
         }
 
         /* ── Pines ── */
@@ -428,7 +683,7 @@ export default function MapaComisiones() {
           left: 0;
           top: 30px;
           transform: translateX(-50%) translateY(4px);
-          width: 232px;
+          width: 248px;
           background: var(--surface, #121917);
           border: 1px solid rgba(255, 255, 255, 0.07);
           border-radius: 14px;
@@ -443,9 +698,18 @@ export default function MapaComisiones() {
           pointer-events: none;
         }
         .mco-tooltip.es-visible { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+        /* Variantes de borde: que el overflow del mapa no recorte el tooltip. */
+        .mco-tooltip-arriba { top: auto; bottom: 30px; }
+        .mco-tooltip-izq { transform: translateX(-12%) translateY(4px); }
+        .mco-tooltip-izq.es-visible { transform: translateX(-12%) translateY(0); }
+        .mco-tooltip-der { transform: translateX(-88%) translateY(4px); }
+        .mco-tooltip-der.es-visible { transform: translateX(-88%) translateY(0); }
         .mco-tt-ciudad { font-size: 15px; font-weight: 800; }
-        .mco-tt-fecha { margin-top: 4px; font-size: 13px; color: rgba(255, 255, 255, 0.75); }
-        .mco-tt-horas { margin-top: 2px; font-size: 13px; color: rgba(255, 255, 255, 0.55); }
+        .mco-tt-evento { margin-top: 8px; }
+        .mco-tt-nombre { font-size: 14px; font-weight: 700; }
+        .mco-tt-fecha { margin-top: 2px; font-size: 13px; color: rgba(255, 255, 255, 0.75); }
+        .mco-tt-lugar { margin-top: 2px; font-size: 12.5px; color: rgba(255, 255, 255, 0.55); }
+        .mco-tt-comision { margin-top: 10px; font-size: 12.5px; color: rgba(255, 255, 255, 0.6); }
 
         /* ── Tarjetas de comisión ── */
         .mco-leyendas { display: grid; gap: 12px; margin-top: 14px; }
@@ -487,6 +751,22 @@ export default function MapaComisiones() {
           color: rgba(255, 255, 255, 0.4);
         }
 
+        /* ── Esqueleto de carga (sutil, bajo el mapa) ── */
+        .mco-esqueletos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+        .mco-esqueleto {
+          width: 132px;
+          height: 44px;
+          border-radius: 12px;
+          background: var(--surface, #121917);
+          box-shadow:
+            inset 4px 4px 10px rgba(2, 6, 4, 0.55),
+            inset -3px -3px 8px rgba(46, 66, 56, 0.25);
+          opacity: 0.6;
+        }
+
+        /* ── Sin eventos (o error de red): el mapa se queda, esto avisa ── */
+        .mco-vacio { margin-top: 14px; font-size: 14px; color: rgba(255, 255, 255, 0.6); }
+
         /* ── Fichas de ciudad (solo móvil) ── */
         .mco-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
         .mco-chip {
@@ -513,6 +793,21 @@ export default function MapaComisiones() {
             inset -3px -3px 8px rgba(46, 66, 56, 0.35);
         }
         .mco-chip-punto { width: 9px; height: 9px; border-radius: 999px; flex: none; }
+
+        /* ── Fichas de eventos fuera del mapa (todas las pantallas) ── */
+        .mco-sueltos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+        .mco-suelto {
+          min-height: 44px;
+          padding: 10px 14px;
+          border-radius: 12px;
+          background: var(--surface, #121917);
+          box-shadow:
+            -4px -4px 10px var(--neu-luz, rgba(46, 66, 56, 0.5)),
+            5px 5px 12px var(--neu-sombra, rgba(2, 6, 4, 0.85));
+        }
+        .mco-suelto-nombre { font-size: 14px; font-weight: 700; }
+        .mco-suelto-fecha { margin-top: 2px; font-size: 12.5px; color: rgba(255, 255, 255, 0.55); }
+        .mco-suelto-tag { color: rgba(255, 255, 255, 0.45); }
 
         /* ── Panel fijo inferior (el tooltip del teléfono) ── */
         .mco-panel { display: none; }
@@ -570,19 +865,23 @@ export default function MapaComisiones() {
           from { transform: scale(0.5); opacity: 0.85; }
           to   { transform: scale(2.7); opacity: 0; }
         }
-        /* -160 es múltiplo del periodo del guion (4+12): el ciclo no brinca. */
-        @keyframes mco-caravana { to { stroke-dashoffset: -160; } }
+        @keyframes mco-pulso {
+          0%, 100% { opacity: 0.4; }
+          50%      { opacity: 0.75; }
+        }
         @keyframes mco-sube {
           from { transform: translateY(14px); opacity: 0; }
           to   { transform: translateY(0); opacity: 1; }
         }
 
         /* El movimiento solo existe para quien no pidió reducirlo:
-           sin animación las ondas quedan invisibles y la caravana, quieta. */
+           sin animación las ondas quedan invisibles y el esqueleto, quieto. */
         @media (prefers-reduced-motion: no-preference) {
           .mco-onda { animation: mco-onda 2.6s ease-out infinite; }
           .mco-onda-2 { animation-delay: 1.3s; }
-          .mco-ruta-caravana { animation: mco-caravana 10s linear infinite; }
+          .mco-esqueleto { animation: mco-pulso 1.6s ease-in-out infinite; }
+          .mco-esqueleto:nth-child(2) { animation-delay: 0.2s; }
+          .mco-esqueleto:nth-child(3) { animation-delay: 0.4s; }
           .mco-panel { animation: mco-sube 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
         }
       `}</style>

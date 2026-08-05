@@ -7,9 +7,8 @@ import { supabaseBrowser } from "@/lib/supabase";
 import { buildE164, validarTelefono } from "@/lib/phone";
 import { ligaBoleto, estadoLegible } from "@/lib/boleto-ui";
 import { construirCsv, descargarCsv } from "@/lib/csv";
-import { PAGO_DIAS_HABILES, VALIDACION_HORAS } from "@/lib/comisiones";
-import type { Metricas, MiembroEquipo, MisComisiones, TotalMoneda } from "./page";
-import Proyector from "./secciones/proyector";
+import { COMISIONES_PAQUETE, PAGO_DIAS_HABILES, VALIDACION_HORAS } from "@/lib/comisiones";
+import type { Metricas, MiembroEquipo, MisComisiones, TotalMoneda, VentaDeInscripcion } from "./page";
 import Equipo from "./secciones/equipo";
 import SeccionPremios from "./secciones/premios";
 import SeccionTutoriales from "./secciones/tutoriales";
@@ -34,7 +33,16 @@ interface Inscripcion {
   status: string;
   ticket_id: string | null;
   created_at: string;
+  pais: string | null;
 }
+
+/** Comisión máxima que ese inscrito podría dejar — la geografía la define su
+ * EVENTO (regla de Manuel: nadie la elige a mano), y el tope es el paquete
+ * de 12 meses. */
+const proyeccionDe = (pais: string | null) =>
+  pais === "US"
+    ? { cents: COMISIONES_PAQUETE.US["12m"], moneda: "USD" }
+    : { cents: COMISIONES_PAQUETE.MX["12m"], moneda: "MXN" };
 
 interface Recurso {
   id: string;
@@ -67,6 +75,7 @@ export default function PanelClient({
   equipo,
   overridePorMoneda,
   misComisiones,
+  ventasPorInscripcion,
 }: {
   nombre: string;
   activo: boolean;
@@ -83,6 +92,7 @@ export default function PanelClient({
   equipo: MiembroEquipo[];
   overridePorMoneda: TotalMoneda[];
   misComisiones: MisComisiones | null;
+  ventasPorInscripcion: Record<string, VentaDeInscripcion>;
 }) {
   // los premios se ganan por referidos que YA COMPRARON, no por invitados
   // (la escalera visual con imágenes vive en secciones/premios.tsx)
@@ -95,6 +105,25 @@ export default function PanelClient({
         misComisiones.pagada.length ||
         overridePorMoneda.length),
   );
+
+  // "Cuánto voy a comisionar" en Mis inscritos: confirmado (venta capturada)
+  // vs proyectado (con boleto, aún sin compra) — desglosado por moneda SIEMPRE
+  const proyectadoPorMoneda = new Map<string, number>();
+  const confirmadoPorMoneda = new Map<string, number>();
+  for (const i of inscripciones) {
+    const venta = ventasPorInscripcion[i.id];
+    if (venta) {
+      confirmadoPorMoneda.set(
+        venta.moneda,
+        (confirmadoPorMoneda.get(venta.moneda) ?? 0) + venta.comisionCents,
+      );
+    } else if (i.status === "emitido") {
+      const p = proyeccionDe(i.pais);
+      proyectadoPorMoneda.set(p.moneda, (proyectadoPorMoneda.get(p.moneda) ?? 0) + p.cents);
+    }
+  }
+  const listaProyectado = [...proyectadoPorMoneda.entries()];
+  const listaConfirmado = [...confirmadoPorMoneda.entries()];
   const dinero = (cents: number, moneda: string) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: moneda }).format(cents / 100);
   const router = useRouter();
@@ -353,20 +382,30 @@ export default function PanelClient({
 
   function exportar() {
     const csv = construirCsv(
-      ["Invitado", "Correo", "WhatsApp", "Evento", "Estado", "Fecha", "Liga del boleto"],
-      inscripciones.map((i) => [
-        i.nombre,
-        i.email,
-        i.telefono,
-        i.event_name,
-        estadoLegible(i.status).texto,
-        new Date(i.created_at).toLocaleDateString("es-MX", {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric",
-        }),
-        i.ticket_id ? ligaBoleto(i.ticket_id) : "",
-      ]),
+      ["Invitado", "Correo", "WhatsApp", "Evento", "Estado", "Comisión", "Estado de comisión", "Fecha", "Liga del boleto"],
+      inscripciones.map((i) => {
+        const venta = ventasPorInscripcion[i.id];
+        const p = proyeccionDe(i.pais);
+        return [
+          i.nombre,
+          i.email,
+          i.telefono,
+          i.event_name,
+          estadoLegible(i.status).texto,
+          venta
+            ? `${(venta.comisionCents / 100).toFixed(2)} ${venta.moneda}`
+            : i.status === "emitido"
+              ? `hasta ${(p.cents / 100).toFixed(2)} ${p.moneda}`
+              : "",
+          venta ? "Comisión confirmada" : i.status === "emitido" ? "Proyectado" : "",
+          new Date(i.created_at).toLocaleDateString("es-MX", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          }),
+          i.ticket_id ? ligaBoleto(i.ticket_id) : "",
+        ];
+      }),
     );
     descargarCsv("mis-inscritos", csv);
   }
@@ -683,7 +722,6 @@ export default function PanelClient({
         {activo ? (
           <>
             <SeccionPremios cerrados={cerrados} />
-            <Proyector geografiaInicial="MX" />
             <MapaComisiones />
             <Equipo
               dbListo={dbListo}
@@ -761,6 +799,35 @@ export default function PanelClient({
               ))}
             </div>
           ) : null}
+
+          {listaProyectado.length > 0 || listaConfirmado.length > 0 ? (
+            <div className="glass mt-4 flex flex-wrap items-end gap-x-10 gap-y-3 border border-[#d9b45b]/25 p-5">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
+                  Comisión proyectada
+                </p>
+                <p className="mt-1 text-2xl font-extrabold tabular text-white/85">
+                  {listaProyectado.length
+                    ? `hasta ${listaProyectado.map(([m, c]) => dinero(c, m)).join(" · ")}`
+                    : "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#d9b45b]/90">
+                  Comisión confirmada
+                </p>
+                <p className="mt-1 text-2xl font-extrabold tabular text-[#d9b45b]">
+                  {listaConfirmado.length
+                    ? listaConfirmado.map(([m, c]) => dinero(c, m)).join(" · ")
+                    : "—"}
+                </p>
+              </div>
+              <p className="basis-full text-xs text-white/45">
+                La proyección toma el paquete de 12 meses según el evento de cada invitado; se
+                confirma cuando tu invitado se une al Club.
+              </p>
+            </div>
+          ) : null}
           {aviso ? (
             <p
               className={`mt-3 text-sm font-semibold ${aviso.ok ? "text-[#19e16d]" : "text-[#ffb2b2]"}`}
@@ -779,6 +846,7 @@ export default function PanelClient({
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em]">Evento</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em]">WhatsApp</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em]">Estado</th>
+                    <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em]">Comisión</th>
                     <th className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.14em]">Boleto</th>
                   </tr>
                 </thead>
@@ -788,7 +856,7 @@ export default function PanelClient({
                     if (editando === i.id) {
                       return (
                         <tr key={i.id} className="border-t border-white/[0.06] bg-white/[0.02]">
-                          <td colSpan={5} className="px-4 py-5">
+                          <td colSpan={6} className="px-4 py-5">
                             <p className="sec-tag mb-3">Corrigiendo a {i.nombre}</p>
                             <div className="grid gap-3 sm:grid-cols-3">
                               <div>
@@ -861,6 +929,37 @@ export default function PanelClient({
                           >
                             {estado.texto}
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {(() => {
+                            const venta = ventasPorInscripcion[i.id];
+                            if (venta) {
+                              return (
+                                <div>
+                                  <p className="font-extrabold tabular text-[#d9b45b]">
+                                    {dinero(venta.comisionCents, venta.moneda)}
+                                  </p>
+                                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#d9b45b]/80">
+                                    Comisión confirmada
+                                  </p>
+                                </div>
+                              );
+                            }
+                            if (i.status === "emitido") {
+                              const p = proyeccionDe(i.pais);
+                              return (
+                                <div>
+                                  <p className="tabular font-semibold text-white/80">
+                                    hasta {dinero(p.cents, p.moneda)}
+                                  </p>
+                                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/45">
+                                    Proyectado
+                                  </p>
+                                </div>
+                              );
+                            }
+                            return <span className="text-white/35">—</span>;
+                          })()}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap items-center gap-2">
