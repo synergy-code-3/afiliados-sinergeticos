@@ -21,13 +21,15 @@ const URL_INTERNA = "https://synergyticket.net/api/internal/tickets";
  *
  * `general_price` viene vacío en los eventos, así que sigue siendo cortesía.
  */
-const TIPO_BOLETO_AFILIADO = "free";
+const TIPO_BOLETO_AFILIADO = "general";
 
-// ⚠️ NO cambiar a "general" todavía. Su API interna valida el tipo contra un
-// enum y SOLO acepta: free | club-general | club-vip. Mandar "general" devuelve
-// 400 "Invalid enum value" y NINGÚN invitado recibe boleto.
-// Hay que pedirle a la boletera que agregue el tipo del Pase de Afiliado a ese
-// enum de /api/internal/tickets; el día que lo hagan, esto es una línea.
+// Habilitado el 5-ago-2026: la boletera agregó `general` al enum de
+// /api/internal/tickets (antes solo aceptaba free | club-general | club-vip y
+// devolvía 400). Verificado emitiendo un boleto real: 201, ticket_type=general,
+// status=paid, sin cobro.
+//
+// Si algún día vuelve el 400 "Invalid enum value", es que se revirtió ese
+// cambio del lado de la boletera — no es un bug del portal.
 
 export interface DatosBoleto {
   eventId: string;

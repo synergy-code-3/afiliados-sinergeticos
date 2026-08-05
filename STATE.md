@@ -32,6 +32,31 @@ gratuitos y el boleto le llega al invitado por WhatsApp al instante.
 
 ---
 
+## Sesión 19 — 5-ago-2026 — El invitado ya recibe el Pase de Afiliado
+
+Los invitados de un afiliado ya NO reciben el mismo boleto que las landings.
+
+**El tipo es `general`.** En el panel de la boletera se llama **"Boleto de Afiliados"**
+(el naranja) pero por dentro es `general` — reutilizaron ese tipo y le cambiaron nombre y
+diseño el 4-ago. Buscar "afiliado"/"affiliate" en su base NO devuelve nada; el mapeo está
+en su bundle: `{ paid:"Boleto de Pago", general:"Boleto de Afiliados", free:"Boleto Gratuito" }`.
+
+**Estuvo bloqueado unas horas:** su `/api/internal/tickets` validaba el tipo contra un
+enum que solo aceptaba `free | club-general | club-vip`. David lo habilitó en Replit.
+
+⚠️ **Lección:** el primer intento se desplegó SIN probar que la API aceptara el tipo, y
+durante unos minutos ninguna inscripción habría emitido boleto. Al cambiar el
+`ticket_type`, probar la emisión ANTES de desplegar.
+
+**Verificado end-to-end** (no solo que compilara): inscripción real desde el portal con la
+sesión de Manuel → `POST /api/inscribir` 200 → boleto `aa940c84…` en la boletera con
+`ticket_type = general`, `status = paid`, sin cobro.
+
+Si algún día vuelve el 400 "Invalid enum value", se revirtió el cambio del lado de la
+boletera — no es un bug del portal.
+
+---
+
 ## Sesión 18b — 4-ago-2026 — Correcciones de Manuel (misma noche, desplegadas)
 
 Cuatro ajustes dictados por Manuel viendo el portal vivo, más un rebase sobre el hotfix
