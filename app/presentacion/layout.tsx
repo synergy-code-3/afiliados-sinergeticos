@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 /** Layout de /presentacion: modo sala.
  * Oculta el header global del portal (el deck es pantalla completa propia)
- * y define las clases neumórficas compartidas por el selector y los slides.
+ * y define las clases neumórficas compartidas por los slides.
  * Solo aplica mientras una ruta de /presentacion está montada. */
 
 export const metadata: Metadata = {
@@ -43,23 +43,6 @@ body > header { display: none; }
   box-shadow: inset -3px -3px 8px rgba(46,66,56,0.3), inset 4px 4px 10px rgba(2,6,4,0.7);
 }
 
-/* Tarjetas del selector de versión */
-.sel-tarjeta {
-  display: block;
-  background: #121917;
-  border-radius: 22px;
-  box-shadow: -6px -6px 14px rgba(46,66,56,0.55), 8px 8px 18px rgba(2,6,4,0.85);
-}
-.sel-tarjeta:active {
-  box-shadow: inset -4px -4px 10px rgba(46,66,56,0.35), inset 5px 5px 12px rgba(2,6,4,0.75);
-}
-@media (prefers-reduced-motion: no-preference) {
-  .sel-tarjeta {
-    transition: transform 0.25s cubic-bezier(0.16,1,0.3,1), box-shadow 0.25s ease;
-  }
-  .sel-tarjeta:hover { transform: translateY(-6px); }
-  .sel-tarjeta:active { transform: translateY(0) scale(0.99); }
-}
 `;
 
 export default function PresentacionLayout({ children }: { children: ReactNode }) {

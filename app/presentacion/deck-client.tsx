@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { slidesMX, slidesUS, type Mercado, type Slide } from "./slides";
+import { SLIDES, type Slide } from "./slides";
 
-/** Deck de la presentación del Programa +1.
+/** Deck de la presentación del Programa +1 — UNO solo para MX y US.
  * Navegación: ← → · espacio · PageUp/PageDown (control remoto) · Home/End ·
  * swipe táctil · flechas en pantalla. F = pantalla completa.
  * El chrome inferior SIEMPRE lleva fondo sólido (lección del proyecto). */
@@ -36,6 +36,19 @@ const CSS_DECK = `
   font-weight: 800; line-height: 1.04; letter-spacing: -0.02em;
   text-shadow: 0 6px 40px rgba(2,6,4,0.85), 0 2px 12px rgba(2,6,4,0.7);
 }
+
+/* ── Descansos CLAROS (pedido de Manuel): fondo claro, texto oscuro ── */
+.deck-fondo-clara {
+  background:
+    radial-gradient(1000px 700px at 75% -10%, rgba(25,225,109,0.12), transparent 60%),
+    radial-gradient(900px 600px at 8% 110%, rgba(217,180,91,0.12), transparent 55%),
+    linear-gradient(165deg, #f7faf7, #e7efe8);
+}
+.deck-slide-clara { color: #0f1f18; }
+.deck-slide-clara .deck-frase-descanso { text-shadow: none; }
+.deck-slide-clara .texto-verde { color: #0b8a45; }
+.deck-slide-clara .deck-kicker { color: #0b8a45; }
+.deck-slide-clara .deck-sub { color: rgba(15,31,24,0.72); }
 .deck-slide {
   position: absolute; inset: 0; overflow-y: auto;
   display: flex; flex-direction: column; justify-content: center;
@@ -124,6 +137,12 @@ const CSS_DECK = `
   background: #19e16d; color: #000; font-weight: 800; font-size: 1.1rem;
 }
 .deck-boton-verde:hover { filter: brightness(1.1); }
+
+/* La escalera de premios sube de izquierda a derecha (solo en pantallas
+   anchas): --sube lo pone cada tarjeta, 0 en el premio más alto. */
+@media (min-width: 1024px) {
+  .premio-escalon { margin-top: var(--sube, 0px); }
+}
 
 .premio-img { display: block; width: 100%; aspect-ratio: 16/9; object-fit: cover; }
 .premio-respaldo {
@@ -218,8 +237,8 @@ const CSS_DECK = `
 }
 `;
 
-export default function DeckClient({ mercado }: { mercado: Mercado }) {
-  const slides: readonly Slide[] = mercado === "mx" ? slidesMX : slidesUS;
+export default function DeckClient() {
+  const slides: readonly Slide[] = SLIDES;
   const total = slides.length;
   const [indice, setIndice] = useState(0);
   const [enPantallaCompleta, setEnPantallaCompleta] = useState(false);
@@ -311,17 +330,24 @@ export default function DeckClient({ mercado }: { mercado: Mercado }) {
       <div
         key={`fondo-${indice}`}
         aria-hidden="true"
-        className={`deck-fondo${slide.entrada === "zoom-fondo" ? " deck-fondo-zoom" : ""}`}
+        className={`deck-fondo${slide.entrada === "zoom-fondo" ? " deck-fondo-zoom" : ""}${
+          slide.tema === "claro" ? " deck-fondo-clara" : ""
+        }`}
         style={slide.fondo ? { backgroundImage: `url(${slide.fondo})` } : undefined}
       />
-      <div
-        aria-hidden="true"
-        className={`deck-velo${slide.velo === "suave" ? " deck-velo-suave" : ""}`}
-      />
+      {/* Los descansos claros no llevan velo: el fondo YA es el descanso. */}
+      {slide.tema === "claro" ? null : (
+        <div
+          aria-hidden="true"
+          className={`deck-velo${slide.velo === "suave" ? " deck-velo-suave" : ""}`}
+        />
+      )}
 
       <section
         key={`slide-${indice}`}
-        className={`deck-slide entrada-${slide.entrada}`}
+        className={`deck-slide entrada-${slide.entrada}${
+          slide.tema === "claro" ? " deck-slide-clara" : ""
+        }`}
         aria-label={`${slide.nombre} — diapositiva ${indice + 1} de ${total}`}
       >
         <div className="deck-centro">{slide.contenido}</div>

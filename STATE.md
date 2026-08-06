@@ -32,6 +32,44 @@ gratuitos y el boleto le llega al invitado por WhatsApp al instante.
 
 ---
 
+## Sesión 21 — 5-ago-2026 — Deck UNIFICADO: un solo deck MX+US, ecosistema, mapa vivo y descansos claros
+
+Manuel pidió unificar las dos presentaciones y reordenar la historia. Lo desplegado:
+
+- **Un solo deck en `/presentacion`** (23 slides): se eliminó el selector MX/US;
+  `/presentacion/mx` y `/presentacion/us` responden **308 permanente** a `/presentacion`
+  (hay ligas viejas circulando). `slides.tsx` exporta `SLIDES` único, sin `Mercado`.
+- **Montos en las DOS monedas, referencia EE. UU. primero**: portada (+$359 USD / $2,700 MXN),
+  ganancias ($2,500–$5,000 USD grande + chip 🇲🇽 $30,000–$65,000 MXN — ambas cifras
+  dictadas por Manuel, NO son conversión), proyecciones (🇺🇸 arriba en verde, 🇲🇽 abajo)
+  y la tabla del esquema con columna EE. UU. antes que México. Regla en pantalla:
+  "la moneda la define el evento, no tu país".
+- **Narrativa nueva al inicio** (pedido textual): slide 2 "Cuando algo es bueno, se
+  comparte / crece / ganan todos" + slide 3 **ecosistema de negocios** (educación,
+  eventos, comunidad, oportunidades — "tú ya lo vives") → la invitación es natural.
+- **Esquema de comisiones ANTES de los premios** (antes estaba después): orden
+  proyecciones → esquema → pago → premios. **Premios con historia**: "Esto va más
+  allá de las comisiones", cada escalón con línea narrativa ("Tu Club se paga solo",
+  "Te vas de viaje con Jorge"…) y escalera visual ascendente en desktop (`--sube`).
+- **Mapa de próximos eventos EN el deck** (`app/presentacion/mapa-gira.tsx`): pines
+  vivos de /api/eventos, verde=MX dorado=US, conteo por país, sin interacción (es
+  para proyectar). La geografía se extrajo a **`lib/mapa-geo.ts`** (proyección,
+  gazetteer 39 ciudades, contornos, acomodo de etiquetas) y ahora la comparten el
+  panel (`mapa-comisiones.tsx`, refactorizado) y el deck.
+- **Gira unificada con bandera por evento** (`gira.tsx`): sin filtro de país, orden
+  cronológico, 🇲🇽/🇺🇸 por fila, tope 8 filas + "…y N fechas más".
+- **Descansos visuales CLAROS** (pedido: "fondo blanco o más claro cada 2-3
+  diapositivas"): `tema: "claro"` en el Slide → fondo degradado claro, texto oscuro,
+  sin velo. Van en las posiciones 4, 8, 12, 17 y 20 (¿A quién le interesa? con luces).
+- Verificado con build + 23 screenshots Playwright en 1280×720 (local `next start`).
+
+⚠️ Trampa nueva de verificación local: si relanzas `npm start` sin matar el proceso
+anterior, el viejo sigue dueño del puerto sirviendo un build REEMPLAZADO → chunks 500
+y la página carga sin hidratar (las flechas no avanzan). Señal: `EADDRINUSE` en el
+log del start nuevo. Matar con `lsof -ti :PUERTO | xargs kill` antes de re-probar.
+
+---
+
 ## Sesión 20 — 5-ago-2026 — Celebración 3D, reenvío del pase, panel reordenado y cotejo boletera↔web
 
 Cuatro pedidos de Manuel, la misma noche:

@@ -7,8 +7,9 @@ import { estiloCascada } from "./piezas";
 /** Gira dinámica — la ÚNICA fuente de fechas del deck.
  *
  * Consume /api/eventos (eventos futuros activos de la boletera, ya filtrados
- * en el servidor) y muestra SOLO los del país de la versión: el deck MX jamás
- * enseña ciudades de EE. UU. y viceversa.
+ * en el servidor). El deck es UNO solo para México y Estados Unidos: se
+ * muestran TODOS los eventos ordenados por fecha, cada fila con la bandera
+ * de su país — así la sala ve de un vistazo dónde es cada evento.
  *
  * La boletera publica las sesiones AM y PM del mismo evento como eventos
  * separados → aquí se AGRUPAN por ciudad+fecha en una sola fila con ambas
@@ -20,15 +21,20 @@ const MENSAJE_SIN_FECHAS = "Muy pronto anunciamos las fechas de tu región";
 const MENSAJE_CARGANDO = "Cargando las fechas…";
 
 /** Topes de filas visibles: un deck NUNCA scrollea dentro de la slide. */
-const MAX_FILAS_GIRA = 6;
+const MAX_FILAS_GIRA = 8;
 const MAX_FILAS_COMPACTA = 4;
+
+export const banderaDe = (g: Geografia): string => (g === "MX" ? "🇲🇽" : "🇺🇸");
 
 interface EventoGira {
   id: string;
   ciudad: string;
   fechaLarga: string;
+  /** Milisegundos de la fecha, para ordenar la gira cronológicamente. */
+  marca: number;
   hora: string | null;
   venue: string | null;
+  pais: Geografia;
 }
 
 /** Una fila por ciudad/día; junta las horas de las sesiones AM y PM. */
@@ -36,8 +42,10 @@ interface GrupoGira {
   id: string;
   ciudad: string;
   fechaLarga: string;
+  marca: number;
   horas: readonly string[];
   venue: string | null;
+  pais: Geografia;
 }
 
 type EstadoGira =
@@ -62,11 +70,14 @@ const partesDeNombre = (nombre: string): readonly string[] =>
 const marcaDe = (fecha: string): number =>
   new Date(/^\d{4}-\d{2}-\d{2}$/.test(fecha) ? `${fecha}T12:00:00` : fecha).getTime();
 
+const esGeografia = (v: unknown): v is Geografia => v === "MX" || v === "US";
+
 /** Valida y limpia un evento crudo de la API — nunca confiar en datos externos. */
 const aEventoGira = (crudo: Record<string, unknown>): EventoGira | null => {
-  const { id, name, date, venue } = crudo;
+  const { id, name, date, venue, pais } = crudo;
   if (typeof name !== "string" || name.trim() === "") return null;
   if (typeof id !== "string" && typeof id !== "number") return null;
+  if (!esGeografia(pais)) return null;
 
   const partes = partesDeNombre(name);
   const marca = typeof date === "string" ? marcaDe(date) : Number.NaN;
@@ -79,8 +90,10 @@ const aEventoGira = (crudo: Record<string, unknown>): EventoGira | null => {
     id: String(id),
     ciudad: partes[0] ?? name,
     fechaLarga,
+    marca: Number.isFinite(marca) ? marca : Number.MAX_SAFE_INTEGER,
     hora: partes[2] ?? null,
     venue: typeof venue === "string" && venue.trim() !== "" ? venue.trim() : null,
+    pais,
   };
 };
 
@@ -98,8 +111,10 @@ export const agruparEventos = (eventos: readonly EventoGira[]): readonly GrupoGi
           id: e.id,
           ciudad: e.ciudad,
           fechaLarga: e.fechaLarga,
+          marca: e.marca,
           horas: e.hora ? [e.hora] : [],
           venue: e.venue,
+          pais: e.pais,
         },
       ];
     }
@@ -107,7 +122,9 @@ export const agruparEventos = (eventos: readonly EventoGira[]): readonly GrupoGi
     const horas =
       e.hora && !previo.horas.includes(e.hora) ? [...previo.horas, e.hora] : previo.horas;
     return grupos.map((g, i) =>
-      i === idx ? { ...g, horas, venue: g.venue ?? e.venue } : g,
+      i === idx
+        ? { ...g, horas, venue: g.venue ?? e.venue, marca: Math.min(g.marca, e.marca) }
+        : g,
     );
   }, []);
 
@@ -129,7 +146,7 @@ const eventosCrudos = (cuerpo: unknown): readonly unknown[] => {
   return Array.isArray(lista) ? lista : [];
 };
 
-const useEventosGira = (pais: Geografia): EstadoGira => {
+const useEventosGira = (): EstadoGira => {
   const [estado, setEstado] = useState<EstadoGira>({ fase: "cargando" });
 
   useEffect(() => {
@@ -143,13 +160,14 @@ const useEventosGira = (pais: Geografia): EstadoGira => {
         r.ok ? (r.json() as Promise<unknown>) : Promise.reject(new Error(`HTTP ${r.status}`)),
       )
       .then((cuerpo) => {
-        const grupos = agruparEventos(
-          eventosCrudos(cuerpo)
-            .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
-            .filter((e) => e.pais === pais)
-            .map(aEventoGira)
-            .filter((e): e is EventoGira => e !== null),
-        );
+        const grupos = [
+          ...agruparEventos(
+            eventosCrudos(cuerpo)
+              .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null)
+              .map(aEventoGira)
+              .filter((e): e is EventoGira => e !== null),
+          ),
+        ].sort((a, b) => a.marca - b.marca || a.ciudad.localeCompare(b.ciudad));
         resolver(grupos.length > 0 ? { fase: "listo", grupos } : { fase: "sin-eventos" });
       })
       // El error de red tiene UX definida por Manuel: el aviso "muy pronto…".
@@ -158,15 +176,15 @@ const useEventosGira = (pais: Geografia): EstadoGira => {
     return () => {
       cancelado = true;
     };
-  }, [pais]);
+  }, []);
 
   return estado;
 };
 
 /** Variante grande para la slide de la gira: filas compactas de una línea,
- * tope de 6, título y encabezado siempre en viewport (1280×720 incluido). */
-export function GiraDinamica({ pais }: { pais: Geografia }) {
-  const estado = useEventosGira(pais);
+ * tope de 8, título y encabezado siempre en viewport (1280×720 incluido). */
+export function GiraDinamica() {
+  const estado = useEventosGira();
 
   if (estado.fase === "cargando") {
     return (
@@ -201,16 +219,22 @@ export function GiraDinamica({ pais }: { pais: Geografia }) {
             }`}
             style={estiloCascada(i)}
           >
-            <div className="flex flex-wrap items-baseline gap-x-5 gap-y-0.5">
-              <span className="text-[clamp(1.15rem,2.1vw,1.7rem)] font-extrabold leading-tight texto-verde">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-0.5">
+              <span
+                className="text-[clamp(1rem,1.8vw,1.45rem)]"
+                aria-label={g.pais === "MX" ? "Evento en México" : "Evento en Estados Unidos"}
+              >
+                {banderaDe(g.pais)}
+              </span>
+              <span className="text-[clamp(1.1rem,2vw,1.6rem)] font-extrabold leading-tight texto-verde">
                 {g.ciudad}
               </span>
-              <span className="tabular text-[clamp(0.95rem,1.6vw,1.3rem)] font-semibold text-white/85">
+              <span className="tabular text-[clamp(0.95rem,1.5vw,1.25rem)] font-semibold text-white/85">
                 {g.fechaLarga}
                 {horas ? ` · ${horas}` : ""}
               </span>
               {g.venue ? (
-                <span className="min-w-0 flex-1 truncate text-right text-[clamp(0.85rem,1.3vw,1.05rem)] text-white/55">
+                <span className="min-w-0 flex-1 truncate text-right text-[clamp(0.85rem,1.2vw,1rem)] text-white/55">
                   {g.venue}
                 </span>
               ) : null}
@@ -227,9 +251,9 @@ export function GiraDinamica({ pais }: { pais: Geografia }) {
   );
 }
 
-/** Variante compacta para el cierre: ciudad · fecha · horas, tope de 4. */
-export function GiraCompacta({ pais }: { pais: Geografia }) {
-  const estado = useEventosGira(pais);
+/** Variante compacta para el cierre: bandera · ciudad · fecha, tope de 4. */
+export function GiraCompacta() {
+  const estado = useEventosGira();
 
   if (estado.fase === "cargando") {
     return (
@@ -252,6 +276,7 @@ export function GiraCompacta({ pais }: { pais: Geografia }) {
         const horas = textoHoras(g.horas);
         return (
           <li key={g.id}>
+            <span aria-hidden="true">{banderaDe(g.pais)}</span>{" "}
             <strong className="texto-verde">{g.ciudad}</strong> · {g.fechaLarga}
             {horas ? ` · ${horas}` : ""}
           </li>

@@ -1,38 +1,9 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import DeckClient from "../deck-client";
-import type { Mercado } from "../slides";
+import { permanentRedirect } from "next/navigation";
 
-/** /presentacion/mx · /presentacion/us — el deck por mercado.
- * Cualquier otro valor cae en notFound(). */
+/** /presentacion/mx · /presentacion/us — rutas viejas del deck por mercado.
+ * El deck se unificó (5-ago-2026): cualquier liga guardada cae en la
+ * presentación única con un 308 permanente. */
 
-const MERCADOS: readonly Mercado[] = ["mx", "us"];
-
-const esMercado = (valor: string): valor is Mercado =>
-  (MERCADOS as readonly string[]).includes(valor);
-
-export function generateStaticParams() {
-  return MERCADOS.map((mercado) => ({ mercado }));
-}
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ mercado: string }>;
-}): Promise<Metadata> {
-  const { mercado } = await params;
-  return {
-    title:
-      mercado === "us" ? "Presentación USA · Programa +1" : "Presentación MX · Programa +1",
-  };
-}
-
-export default async function PaginaPresentacion({
-  params,
-}: {
-  params: Promise<{ mercado: string }>;
-}) {
-  const { mercado } = await params;
-  if (!esMercado(mercado)) notFound();
-  return <DeckClient mercado={mercado} />;
+export default function PresentacionPorMercado() {
+  permanentRedirect("/presentacion");
 }
