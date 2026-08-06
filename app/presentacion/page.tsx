@@ -1,20 +1,20 @@
 import Link from "next/link";
 
-/** Selector de versión de la presentación Synergy +1.
- * Misma estructura en ambas; cambian montos, moneda y énfasis de ciudades. */
+/** Selector de versión de la presentación del Programa +1.
+ * Cada versión solo enseña SU moneda y SUS eventos: separación total. */
 
 const VERSIONES = [
   {
     href: "/presentacion/mx",
     bandera: "🇲🇽",
     nombre: "México",
-    detalle: "Montos en pesos · énfasis en Tijuana y Ciudad Juárez",
+    detalle: "Montos en pesos · eventos y fechas de México",
   },
   {
     href: "/presentacion/us",
     bandera: "🇺🇸",
     nombre: "Estados Unidos",
-    detalle: "Montos en dólares · énfasis en Austin, San Antonio, Houston y Dallas",
+    detalle: "Montos en dólares · eventos y fechas de Estados Unidos",
   },
 ] as const;
 
@@ -23,10 +23,10 @@ export default function SelectorPresentacion() {
     <main className="pres-fondo-base flex min-h-dvh flex-col items-center justify-center px-6 py-16">
       <span className="sello-suma">1 + 1 = 3</span>
       <h1 className="mt-6 text-center text-5xl font-extrabold tracking-tight sm:text-6xl">
-        Synergy <span className="text-[#19e16d]">+1</span>
+        Programa <span className="text-[#19e16d]">+1</span>
       </h1>
       <p className="mt-3 max-w-xl text-center text-lg text-white/65">
-        La presentación para anunciarlo a la comunidad. Elige tu versión:
+        Buscamos al siguiente representante de Sinergéticos en cada región. Elige tu versión:
       </p>
 
       <div className="mt-12 grid w-full max-w-3xl gap-6 sm:grid-cols-2">

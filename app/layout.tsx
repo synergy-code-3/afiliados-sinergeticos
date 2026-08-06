@@ -18,7 +18,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Synergy +1 · Afiliados Sinergéticos",
+  title: "Synergy +1 · Programa +1 de Sinergéticos",
   description:
     "Sé el +1 de alguien más: invita a tus conocidos al Seminario con pase VIP de cortesía y gana con ello.",
   robots: { index: false, follow: false },

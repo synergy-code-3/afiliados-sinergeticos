@@ -1,11 +1,7 @@
 import Link from "next/link";
 import { supabaseSession } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
-import { COMISIONES_PAQUETE } from "@/lib/comisiones";
-
-/* Topes del teaser desde la fuente única de comisiones: paquete Club 12 meses. */
-const TOPE_MX = `$${(COMISIONES_PAQUETE.MX["12m"] / 100).toLocaleString("es-MX")} MXN`;
-const TOPE_US = `$${(COMISIONES_PAQUETE.US["12m"] / 100).toLocaleString("es-MX")} USD`;
+import TopeComision from "@/app/components/tope-comision";
 
 const PASOS = [
   [
@@ -93,9 +89,7 @@ export default async function Home() {
             Comisiones por cada +1
           </p>
           <p className="mt-4 text-3xl font-extrabold leading-tight sm:text-4xl">
-            Gana hasta <span className="text-[#19e16d]">{TOPE_MX}</span>
-            <span className="text-white/40"> / </span>
-            <span className="text-[#19e16d]">{TOPE_US}</span>
+            Gana hasta <TopeComision />
             <br className="hidden sm:block" /> por persona que se une al Club
           </p>
           <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-white/60">

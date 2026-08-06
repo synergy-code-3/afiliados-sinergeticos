@@ -644,131 +644,6 @@ export default function PanelClient({
           </form>
         )}
 
-        {hayComisiones && misComisiones ? (
-          <section className="a3 mt-12">
-            <p className="sec-tag mb-1">Tu dinero</p>
-            <h2 className="text-xl font-bold">Tus comisiones</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              {(
-                [
-                  ["En validación", misComisiones.pendiente],
-                  ["Validadas", misComisiones.validada],
-                  ["Pagadas", misComisiones.pagada],
-                ] as const
-              ).map(([etiqueta, filas]) => (
-                <div key={etiqueta} className="glass p-5">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
-                    {etiqueta}
-                  </p>
-                  {filas.length === 0 ? (
-                    <p className="mt-1 text-2xl font-extrabold tabular text-white/30">—</p>
-                  ) : (
-                    filas.map((f) => (
-                      <p key={f.moneda} className="mt-1 text-2xl font-extrabold tabular">
-                        {dinero(f.cents, f.moneda)}
-                      </p>
-                    ))
-                  )}
-                </div>
-              ))}
-            </div>
-            {overridePorMoneda.length > 0 ? (
-              <p className="mt-3 text-sm text-white/55">
-                Más tu bono de equipo:{" "}
-                <span className="font-bold text-[#d9b45b]">
-                  {overridePorMoneda.map((o) => dinero(o.cents, o.moneda)).join(" · ")}
-                </span>{" "}
-                por las ventas de tus +1.
-              </p>
-            ) : null}
-            <p className="mt-2 text-xs text-white/40">
-              Tras cada evento hay {VALIDACION_HORAS} horas para validar comisiones; después del
-              corte, tu depósito llega en {PAGO_DIAS_HABILES} días hábiles.
-            </p>
-          </section>
-        ) : null}
-
-        {ingresos.length > 0 ? (
-          <section className="a3 mt-12">
-            <p className="sec-tag mb-1">Lo que has generado</p>
-            <h2 className="text-xl font-bold">Ventas de tus referidos</h2>
-            <p className="mt-1 text-sm text-white/55">
-              Lo que compraron las personas que tú inscribiste, desde que las inscribiste.
-            </p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {ingresos.map((ing) => (
-                <div key={ing.moneda} className="glass p-5">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
-                    Histórico · {ing.moneda}
-                  </p>
-                  <p className="mt-1 text-2xl font-extrabold tabular">
-                    {dinero(Number(ing.total_cents), ing.moneda)}
-                  </p>
-                  <p className="mt-3 text-sm text-white/55">
-                    Este mes:{" "}
-                    <span className="font-bold text-white/80">
-                      {dinero(Number(ing.mes_cents ?? 0), ing.moneda)}
-                    </span>
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-white/40">
-              Son las ventas generadas, no tu comisión — el porcentaje se aplica aparte.
-            </p>
-          </section>
-        ) : null}
-
-        {activo ? (
-          <>
-            <SeccionPremios cerrados={cerrados} />
-            <MapaComisiones />
-            <Equipo
-              dbListo={dbListo}
-              codigoRef={codigoRef}
-              miembros={equipo}
-              overridePorMoneda={overridePorMoneda}
-            />
-          </>
-        ) : null}
-
-        <SeccionTutoriales />
-        <SeccionPracticas />
-
-        {recursos.length > 0 ? (
-          <section className="a3 mt-12">
-            <p className="sec-tag mb-1">Material para compartir</p>
-            <h2 className="text-xl font-bold">Recursos</h2>
-            <p className="mt-1 text-sm text-white/55">
-              Descárgalos o mándalos directo por WhatsApp a tus contactos.
-            </p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {recursos.map((r) => (
-                <div key={r.id} className="glass flex flex-col p-5">
-                  <span className="sec-tag">{TIPO_LABEL[r.tipo] ?? "Recurso"}</span>
-                  <p className="mt-2 font-bold">{r.titulo}</p>
-                  {r.descripcion ? (
-                    <p className="mt-1 text-sm leading-relaxed text-white/55">{r.descripcion}</p>
-                  ) : null}
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <a
-                      href={r.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-ghost btn-press !px-4 !py-2 !text-sm"
-                    >
-                      {r.tipo === "link" ? "Abrir" : "Descargar"}
-                    </a>
-                    <button onClick={() => compartirWa(r)} className="btn-cta btn-press !px-4 !py-2 !text-sm">
-                      Compartir por WhatsApp
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
         <section className="a4 mt-12">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -1005,6 +880,133 @@ export default function PanelClient({
             </div>
           )}
         </section>
+
+        {hayComisiones && misComisiones ? (
+          <section className="a3 mt-12">
+            <p className="sec-tag mb-1">Tu dinero</p>
+            <h2 className="text-xl font-bold">Tus comisiones</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              {(
+                [
+                  ["En validación", misComisiones.pendiente],
+                  ["Validadas", misComisiones.validada],
+                  ["Pagadas", misComisiones.pagada],
+                ] as const
+              ).map(([etiqueta, filas]) => (
+                <div key={etiqueta} className="glass p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
+                    {etiqueta}
+                  </p>
+                  {filas.length === 0 ? (
+                    <p className="mt-1 text-2xl font-extrabold tabular text-white/30">—</p>
+                  ) : (
+                    filas.map((f) => (
+                      <p key={f.moneda} className="mt-1 text-2xl font-extrabold tabular">
+                        {dinero(f.cents, f.moneda)}
+                      </p>
+                    ))
+                  )}
+                </div>
+              ))}
+            </div>
+            {overridePorMoneda.length > 0 ? (
+              <p className="mt-3 text-sm text-white/55">
+                Más tu bono de equipo:{" "}
+                <span className="font-bold text-[#d9b45b]">
+                  {overridePorMoneda.map((o) => dinero(o.cents, o.moneda)).join(" · ")}
+                </span>{" "}
+                por las ventas de tus +1.
+              </p>
+            ) : null}
+            <p className="mt-2 text-xs text-white/40">
+              Tras cada evento hay {VALIDACION_HORAS} horas para validar comisiones; después del
+              corte, tu depósito llega en {PAGO_DIAS_HABILES} días hábiles.
+            </p>
+          </section>
+        ) : null}
+
+        {ingresos.length > 0 ? (
+          <section className="a3 mt-12">
+            <p className="sec-tag mb-1">Lo que has generado</p>
+            <h2 className="text-xl font-bold">Ventas de tus referidos</h2>
+            <p className="mt-1 text-sm text-white/55">
+              Lo que compraron las personas que tú inscribiste, desde que las inscribiste.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {ingresos.map((ing) => (
+                <div key={ing.moneda} className="glass p-5">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-white/45">
+                    Histórico · {ing.moneda}
+                  </p>
+                  <p className="mt-1 text-2xl font-extrabold tabular">
+                    {dinero(Number(ing.total_cents), ing.moneda)}
+                  </p>
+                  <p className="mt-3 text-sm text-white/55">
+                    Este mes:{" "}
+                    <span className="font-bold text-white/80">
+                      {dinero(Number(ing.mes_cents ?? 0), ing.moneda)}
+                    </span>
+                  </p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-white/40">
+              Son las ventas generadas, no tu comisión — el porcentaje se aplica aparte.
+            </p>
+          </section>
+        ) : null}
+
+        {activo ? (
+          <>
+            <SeccionPremios cerrados={cerrados} />
+            <MapaComisiones />
+            <Equipo
+              dbListo={dbListo}
+              codigoRef={codigoRef}
+              miembros={equipo}
+              overridePorMoneda={overridePorMoneda}
+            />
+          </>
+        ) : null}
+
+        <SeccionTutoriales />
+        <SeccionPracticas />
+
+        {recursos.length > 0 ? (
+          <section className="a3 mt-12">
+            <p className="sec-tag mb-1">Material para compartir</p>
+            <h2 className="text-xl font-bold">Recursos</h2>
+            <p className="mt-1 text-sm text-white/55">
+              Descárgalos o mándalos directo por WhatsApp a tus contactos.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {recursos.map((r) => (
+                <div key={r.id} className="glass flex flex-col p-5">
+                  <span className="sec-tag">{TIPO_LABEL[r.tipo] ?? "Recurso"}</span>
+                  <p className="mt-2 font-bold">{r.titulo}</p>
+                  {r.descripcion ? (
+                    <p className="mt-1 text-sm leading-relaxed text-white/55">{r.descripcion}</p>
+                  ) : null}
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-ghost btn-press !px-4 !py-2 !text-sm"
+                    >
+                      {r.tipo === "link" ? "Abrir" : "Descargar"}
+                    </a>
+                    <button onClick={() => compartirWa(r)} className="btn-cta btn-press !px-4 !py-2 !text-sm">
+                      Compartir por WhatsApp
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+
       </div>
     </main>
   );

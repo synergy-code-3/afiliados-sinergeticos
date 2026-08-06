@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
  * excepto en `/presentacion` (fullscreen sin chrome). Abre el chat con
  * Daniel con el mensaje del programa ya escrito. */
 const MENSAJE_AYUDA =
-  "Hola, Daniel. Soy parte del programa Afiliado Sinergético, necesito tu apoyo.";
+  "Hola, Daniel. Soy parte del Programa +1 de Sinergéticos, necesito tu apoyo.";
 const WA_AYUDA_URL = `https://wa.me/12245870935?text=${encodeURIComponent(MENSAJE_AYUDA)}`;
 
 export default function WhatsappBubble() {

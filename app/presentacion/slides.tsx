@@ -12,6 +12,7 @@ import {
   type Paquete,
 } from "@/lib/comisiones";
 import { Palabras, ImagenPremio, dineroSala, estiloCascada } from "./piezas";
+import { GiraDinamica, GiraCompacta } from "./gira";
 
 /* ── Tipos ──────────────────────────────────────────────────────────────── */
 
@@ -33,39 +34,23 @@ export interface Slide {
   /** Imagen de fondo (16:9 cine) o null → degradado base del deck. */
   fondo: string | null;
   entrada: Entrada;
+  /** "suave" deja respirar la foto en los descansos; default = velo fuerte. */
+  velo?: "suave";
   contenido: ReactNode;
 }
 
-/* ── Datos fijos (fuente: docs/SYNERGY-PLUS-BRIEF.md) ───────────────────── */
+/* ── Datos fijos (fuente: docs/SYNERGY-PLUS-BRIEF.md + feedback de Manuel) ── */
 
 const WA_AYUDA =
   "https://wa.me/12245870935?text=" +
   encodeURIComponent(
-    "Hola, Daniel. Soy parte del programa Afiliado Sinergético, necesito tu apoyo.",
+    "Hola, Daniel. Soy parte del Programa +1 de Sinergéticos, necesito tu apoyo.",
   );
 
 const GRUPO_WA = "https://chat.whatsapp.com/Eg9V1E5JIEmDlTH9NKdlTU";
 const GRUPO_WA_CORTA = "chat.whatsapp.com/Eg9V1E5JIEmDlTH9NKdlTU";
 
 const PCT_EXTRA = Math.round(OVERRIDE_PCT * 100);
-
-interface ReunionGira {
-  ciudad: string;
-  fecha: string;
-  cdmx: string;
-  local: string;
-  pais: Geografia;
-}
-
-/** Gira de reuniones informativas — agosto 2026. */
-const GIRA: readonly ReunionGira[] = [
-  { ciudad: "Austin", fecha: "Martes 4", cdmx: "6:00 pm", local: "7:00 pm", pais: "US" },
-  { ciudad: "Tijuana", fecha: "Martes 4", cdmx: "9:00 pm", local: "7:00 pm", pais: "MX" },
-  { ciudad: "Ciudad Juárez", fecha: "Miércoles 5", cdmx: "5:00 pm", local: "6:00 pm", pais: "MX" },
-  { ciudad: "San Antonio", fecha: "Miércoles 5", cdmx: "6:00 pm", local: "7:00 pm", pais: "US" },
-  { ciudad: "Houston", fecha: "Jueves 6", cdmx: "6:00 pm", local: "7:00 pm", pais: "US" },
-  { ciudad: "Dallas", fecha: "Jueves 6", cdmx: "8:00 pm", local: "9:00 pm", pais: "US" },
-];
 
 /** Escalera de premios por referidos que YA compraron (metas fijas). */
 const PREMIOS = [
@@ -93,17 +78,39 @@ const CASOS: readonly Caso[] = [
 
 interface ConfigMercado {
   geografia: Geografia;
-  /** Rango de ganancias a comunicar (lenguaje de posibilidad, nunca garantía). */
-  rango: string;
-  rangoSufijo: string;
+  /** Cifra de ganancias del copy (única excepción de hardcodeo — SOLO su mercado). */
+  cifraGanancias: string;
+  /** Línea única bajo la cifra. */
+  cifraDetalle: string;
 }
 
 const CONFIG: Record<Mercado, ConfigMercado> = {
-  mx: { geografia: "MX", rango: "$30,000 – $65,000", rangoSufijo: "MXN al mes" },
-  us: { geografia: "US", rango: "$1,600 – $3,500", rangoSufijo: "USD al mes" },
+  mx: {
+    geografia: "MX",
+    cifraGanancias: "$30,000 – $65,000",
+    cifraDetalle: "MXN al mes",
+  },
+  us: {
+    geografia: "US",
+    cifraGanancias: "$2,500 – $5,000 USD",
+    cifraDetalle: "al mes, extra · desde tu casa · solo con tus conocidos",
+  },
 };
 
-/* ── Constructor de los 18 slides ───────────────────────────────────────── */
+/** Título de portada: la promesa entra palabra por palabra. */
+const TITULO_PORTADA: readonly { palabra: string; verde?: true }[] = [
+  { palabra: "Buscamos" },
+  { palabra: "al" },
+  { palabra: "siguiente" },
+  { palabra: "representante", verde: true },
+  { palabra: "de" },
+  { palabra: "Sinergéticos" },
+  { palabra: "en" },
+  { palabra: "TU", verde: true },
+  { palabra: "región", verde: true },
+];
+
+/* ── Constructor de los 21 slides ───────────────────────────────────────── */
 
 const construirSlides = (mercado: Mercado): readonly Slide[] => {
   const cfg = CONFIG[mercado];
@@ -112,27 +119,32 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
   const comisionEjemplo = dineroSala(comisionPaqueteCents(g, "6m"), moneda);
 
   return [
-    /* 1 · Portada */
+    /* 1 · Portada — la promesa de la búsqueda */
     {
       nombre: "Portada",
       fondo: "/slides/bg-portada.webp",
       entrada: "palabras",
       contenido: (
-        <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr] lg:gap-16">
           <div>
             <p className="cascada-item" style={estiloCascada(0)}>
               <span className="sello-suma">1 + 1 = 3</span>
             </p>
-            <h1 className="deck-titulo-portada mt-6">
-              <span className="palabra">Synergy</span>{" "}
-              <span className="palabra texto-verde" style={{ animationDelay: "0.12s" }}>
-                +1
-              </span>
-            </h1>
-            <p className="deck-sub cascada-item mt-5 max-w-xl" style={estiloCascada(1)}>
-              El programa de afiliados del Club Sinergético
+            <p className="deck-kicker cascada-item mt-6" style={estiloCascada(1)}>
+              Programa +1 · Club Sinergético
             </p>
-            <p className="cascada-item mt-8 text-lg text-white/70" style={estiloCascada(2)}>
+            <h1 className="deck-titulo mt-4">
+              {TITULO_PORTADA.map((p, i) => (
+                <span
+                  key={`${i}-${p.palabra}`}
+                  className={`palabra${p.verde ? " texto-verde" : ""}`}
+                  style={{ animationDelay: `${i * 0.09}s` }}
+                >
+                  {p.palabra}
+                </span>
+              ))}
+            </h1>
+            <p className="deck-sub cascada-item mt-6 max-w-xl" style={estiloCascada(2)}>
               Con <strong className="text-white">Jorge Serratos</strong> y{" "}
               <strong className="text-white">Manuel de León</strong>
             </p>
@@ -141,7 +153,7 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
             <div className="tarjeta-3d flota-3d pres-card p-6 sm:p-8">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-bold uppercase tracking-[0.16em] text-white/60">
-                  Tu panel · Synergy +1
+                  Tu panel · Programa +1
                 </span>
                 <span className="deck-punto" aria-hidden="true" />
               </div>
@@ -162,16 +174,21 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 2 · ¿De qué se trata? */
+    /* 2 · La convocatoria — ¿de qué se trata? */
     {
-      nombre: "¿De qué se trata?",
+      nombre: "La convocatoria",
       fondo: null,
       entrada: "fade-up",
       contenido: (
         <>
-          <span className="deck-kicker">El programa</span>
+          <span className="deck-kicker">La convocatoria</span>
           <h2 className="deck-titulo mt-3">¿De qué se trata?</h2>
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
+          <p className="deck-sub mt-5 max-w-4xl">
+            Queremos encontrar al siguiente{" "}
+            <strong className="text-white">representante de Sinergéticos en tu región</strong>.
+            Desde hoy eres candidato — y el camino empieza con tus +1:
+          </p>
+          <div className="mt-8 grid gap-5 lg:grid-cols-3">
             {[
               [
                 "🤝",
@@ -202,49 +219,11 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 3 · La gira */
-    {
-      nombre: "La gira",
-      fondo: "/slides/bg-gira.webp",
-      entrada: "barrido",
-      contenido: (
-        <>
-          <span className="deck-kicker">Reuniones informativas · agosto 2026</span>
-          <h2 className="deck-titulo mt-3">Corre la voz: estas son las fechas</h2>
-          <div className="pres-card mt-10 overflow-x-auto p-4 sm:p-6">
-            <table className="w-full min-w-[560px] text-left text-lg lg:text-2xl">
-              <thead>
-                <tr className="text-sm uppercase tracking-[0.14em] text-white/50 lg:text-base">
-                  <th className="px-4 py-3 font-bold">Ciudad</th>
-                  <th className="px-4 py-3 font-bold">Fecha</th>
-                  <th className="px-4 py-3 font-bold">Hora CDMX</th>
-                  <th className="px-4 py-3 font-bold">Hora local</th>
-                </tr>
-              </thead>
-              <tbody>
-                {GIRA.map((r) => (
-                  <tr
-                    key={r.ciudad}
-                    className={`border-t border-white/10 ${r.pais === g ? "gira-destacada" : ""}`}
-                  >
-                    <td className="px-4 py-3 font-extrabold">{r.ciudad}</td>
-                    <td className="px-4 py-3">{r.fecha}</td>
-                    <td className="tabular px-4 py-3 text-white/75">{r.cdmx}</td>
-                    <td className="tabular px-4 py-3 text-white/75">{r.local}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      ),
-    },
-
-    /* 4 · ¿Por qué lo hacemos? */
+    /* 3 · ¿Por qué lo hacemos? */
     {
       nombre: "¿Por qué lo hacemos?",
-      fondo: "/slides/bg-filosofia.webp",
-      entrada: "zoom-fondo",
+      fondo: null,
+      entrada: "cascada",
       contenido: (
         <>
           <span className="deck-kicker">¿Por qué lo hacemos?</span>
@@ -269,11 +248,11 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 5 · La filosofía +1 */
+    /* 4 · La filosofía +1 */
     {
       nombre: "La filosofía +1",
       fondo: null,
-      entrada: "escala",
+      entrada: "fade",
       contenido: (
         <div className="text-center">
           <p className="deck-ecuacion tabular">
@@ -287,17 +266,31 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 6 · ¿Cuánto podrías ganar? */
+    /* 5 · Descanso visual I */
+    {
+      nombre: "Descanso · Tu +1",
+      fondo: "/slides/bg-filosofia.webp",
+      entrada: "zoom-fondo",
+      velo: "suave",
+      contenido: (
+        <div className="text-center">
+          <p className="deck-frase-descanso">
+            Tu +1 te está <span className="texto-verde">esperando</span>.
+          </p>
+        </div>
+      ),
+    },
+
+    /* 6 · ¿Cuánto podrías ganar? — la cifra va sola */
     {
       nombre: "¿Cuánto podrías ganar?",
       fondo: "/slides/bg-ganancias.webp",
-      entrada: "zoom-fondo",
+      entrada: "escala",
       contenido: (
         <div className="text-center">
-          <span className="deck-kicker deck-kicker-oro">¿Cuánto podrías ganar?</span>
-          <p className="deck-cifra tabular mt-8 texto-oro">{cfg.rango}</p>
-          <p className="mt-3 text-[clamp(1.4rem,3vw,2.4rem)] font-bold text-white/90">
-            {cfg.rangoSufijo}
+          <p className="deck-cifra tabular texto-oro">{cfg.cifraGanancias}</p>
+          <p className="mt-4 text-[clamp(1.3rem,2.8vw,2.2rem)] font-bold text-white/90">
+            {cfg.cifraDetalle}
           </p>
           <p className="deck-sub mx-auto mt-10 max-w-3xl">
             Personas reales de la comunidad ya lo están generando. Es una posibilidad real — lo
@@ -307,47 +300,7 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 7 · Comisiones claras */
-    {
-      nombre: "Comisiones claras",
-      fondo: null,
-      entrada: "barrido",
-      contenido: (
-        <>
-          <span className="deck-kicker deck-kicker-oro">Dinero claro</span>
-          <h2 className="deck-titulo mt-3">Comisiones claras</h2>
-          <div className="pres-card mt-10 overflow-x-auto p-4 sm:p-6">
-            <table className="w-full min-w-[480px] text-left text-xl lg:text-3xl">
-              <thead>
-                <tr className="text-sm uppercase tracking-[0.14em] text-white/50 lg:text-base">
-                  <th className="px-4 py-3 font-bold">Si tu invitado se une a…</th>
-                  <th className="px-4 py-3 text-right font-bold">Tu comisión</th>
-                </tr>
-              </thead>
-              <tbody>
-                {PAQUETES.map((p) => (
-                  <tr key={p} className="border-t border-white/10">
-                    <td className="px-4 py-4 font-bold">{PAQUETE_LABEL[p]}</td>
-                    <td className="tabular px-4 py-4 text-right font-extrabold texto-oro">
-                      {dineroSala(comisionPaqueteCents(g, p), moneda)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="pres-card tarjeta-oro mt-6 p-6 sm:p-7">
-            <p className="text-xl font-bold lg:text-2xl">
-              ¿Registras a alguien más al programa?{" "}
-              <span className="texto-oro">{PCT_EXTRA}% extra</span> de todo lo que esa persona
-              genere.
-            </p>
-          </div>
-        </>
-      ),
-    },
-
-    /* 8 · Es fácil */
+    /* 7 · Es fácil */
     {
       nombre: "Es fácil",
       fondo: null,
@@ -381,7 +334,7 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 9 · ¿Qué tienes que hacer? */
+    /* 8 · ¿Qué tienes que hacer? */
     {
       nombre: "¿Qué tienes que hacer?",
       fondo: null,
@@ -415,11 +368,11 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 10 · Tutorial del portal */
+    /* 9 · Tutorial del portal */
     {
       nombre: "Tutorial del portal",
       fondo: "/slides/bg-seminario.webp",
-      entrada: "zoom-fondo",
+      entrada: "barrido",
       contenido: (
         <>
           <span className="deck-kicker">Tutorial</span>
@@ -462,7 +415,53 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 11 · Proyecciones */
+    /* 10 · Premios por referidos — temprano: la zona de motivación */
+    {
+      nombre: "Premios por referidos",
+      fondo: "/slides/bg-premios.webp",
+      entrada: "cascada",
+      contenido: (
+        <>
+          <span className="deck-kicker deck-kicker-oro">La escalera de premios</span>
+          <h2 className="deck-titulo mt-3">Premios por referidos</h2>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {PREMIOS.map((p, i) => (
+              <div
+                key={p.meta}
+                className="pres-card cascada-item overflow-hidden"
+                style={estiloCascada(i)}
+              >
+                <ImagenPremio src={`/premios/premio-${p.meta}.webp`} alt={p.premio} numero={p.meta} />
+                <div className="p-5">
+                  <p className="text-sm font-bold uppercase tracking-[0.14em] texto-oro">
+                    {p.meta} referidos
+                  </p>
+                  <p className="mt-2 text-lg font-extrabold leading-snug">{p.premio}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-6 text-lg text-white/60">Cuentan los referidos que ya compraron.</p>
+        </>
+      ),
+    },
+
+    /* 11 · Descanso visual II */
+    {
+      nombre: "Descanso · 1+1=3",
+      fondo: "/slides/bg-practicas.webp",
+      entrada: "zoom-fondo",
+      velo: "suave",
+      contenido: (
+        <div className="text-center">
+          <p className="deck-frase-descanso tabular">
+            1 + 1 = <span className="texto-verde">3</span>
+          </p>
+        </div>
+      ),
+    },
+
+    /* 12 · Proyecciones */
     {
       nombre: "Proyecciones",
       fondo: null,
@@ -496,10 +495,10 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 12 · Mejores prácticas */
+    /* 13 · Mejores prácticas */
     {
       nombre: "Mejores prácticas",
-      fondo: "/slides/bg-practicas.webp",
+      fondo: null,
       entrada: "fade-up",
       contenido: (
         <>
@@ -528,80 +527,47 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 13 · ¿A quién le interesa? */
+    /* 14 · Comisiones claras — tarde, junto al pago */
     {
-      nombre: "¿A quién le interesa?",
+      nombre: "Comisiones claras",
       fondo: null,
-      entrada: "palabras",
-      contenido: (
-        <div className="text-center">
-          <h2 className="deck-titulo-portada">
-            <Palabras texto="¿A quién le interesa?" />
-          </h2>
-          <p className="mt-10 text-[clamp(1.4rem,3vw,2.4rem)] font-bold text-white/90">
-            Levanta la mano 🙋 — o escanea y entra.
-          </p>
-        </div>
-      ),
-    },
-
-    /* 14 · Grupo de WhatsApp */
-    {
-      nombre: "Grupo de WhatsApp",
-      fondo: null,
-      entrada: "escala",
-      contenido: (
-        <div className="flex flex-col items-center text-center">
-          <span className="deck-kicker">El grupo de WhatsApp</span>
-          <h2 className="deck-titulo mt-3">Aquí va TODO del programa</h2>
-          <div className="qr-blanco mt-10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/qr-grupo-wa.png"
-              alt="Código QR del grupo de WhatsApp de Synergy +1"
-              className="qr-imagen"
-            />
-          </div>
-          <a href={GRUPO_WA} target="_blank" rel="noreferrer" className="deck-boton-verde mt-8">
-            Unirme al grupo
-          </a>
-          <p className="mt-4 font-mono text-base text-white/60">{GRUPO_WA_CORTA}</p>
-        </div>
-      ),
-    },
-
-    /* 15 · Premios por referidos */
-    {
-      nombre: "Premios por referidos",
-      fondo: "/slides/bg-premios.webp",
       entrada: "barrido",
       contenido: (
         <>
-          <span className="deck-kicker deck-kicker-oro">La escalera de premios</span>
-          <h2 className="deck-titulo mt-3">Premios por referidos</h2>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {PREMIOS.map((p, i) => (
-              <div
-                key={p.meta}
-                className="pres-card cascada-item overflow-hidden"
-                style={estiloCascada(i)}
-              >
-                <ImagenPremio src={`/premios/premio-${p.meta}.webp`} alt={p.premio} numero={p.meta} />
-                <div className="p-5">
-                  <p className="text-sm font-bold uppercase tracking-[0.14em] texto-oro">
-                    {p.meta} referidos
-                  </p>
-                  <p className="mt-2 text-lg font-extrabold leading-snug">{p.premio}</p>
-                </div>
-              </div>
-            ))}
+          <span className="deck-kicker deck-kicker-oro">Dinero claro</span>
+          <h2 className="deck-titulo mt-3">Comisiones claras</h2>
+          <div className="pres-card mt-10 overflow-x-auto p-4 sm:p-6">
+            <table className="w-full min-w-[480px] text-left text-xl lg:text-3xl">
+              <thead>
+                <tr className="text-sm uppercase tracking-[0.14em] text-white/50 lg:text-base">
+                  <th className="px-4 py-3 font-bold">Si tu invitado se une a…</th>
+                  <th className="px-4 py-3 text-right font-bold">Tu comisión</th>
+                </tr>
+              </thead>
+              <tbody>
+                {PAQUETES.map((p) => (
+                  <tr key={p} className="border-t border-white/10">
+                    <td className="px-4 py-4 font-bold">{PAQUETE_LABEL[p]}</td>
+                    <td className="tabular px-4 py-4 text-right font-extrabold texto-oro">
+                      {dineroSala(comisionPaqueteCents(g, p), moneda)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          <p className="mt-6 text-lg text-white/60">Cuentan los referidos que ya compraron.</p>
+          <div className="pres-card tarjeta-oro mt-6 p-6 sm:p-7">
+            <p className="text-xl font-bold lg:text-2xl">
+              ¿Registras a alguien más al programa?{" "}
+              <span className="texto-oro">{PCT_EXTRA}% extra</span> de todo lo que esa persona
+              genere.
+            </p>
+          </div>
         </>
       ),
     },
 
-    /* 16 · El pago */
+    /* 15 · El pago */
     {
       nombre: "El pago",
       fondo: null,
@@ -638,44 +604,106 @@ const construirSlides = (mercado: Mercado): readonly Slide[] => {
       ),
     },
 
-    /* 17 · Toma acción */
+    /* 16 · Descanso visual III */
     {
-      nombre: "Toma acción",
+      nombre: "Descanso · El siguiente",
       fondo: "/slides/bg-cierre.webp",
       entrada: "zoom-fondo",
+      velo: "suave",
+      contenido: (
+        <div className="text-center">
+          <p className="deck-frase-descanso">
+            El siguiente podrías ser <span className="texto-verde">tú</span>.
+          </p>
+        </div>
+      ),
+    },
+
+    /* 17 · La gira — fechas REALES desde la boletera */
+    {
+      nombre: "La gira",
+      fondo: "/slides/bg-gira.webp",
+      entrada: "barrido",
+      contenido: (
+        <>
+          <span className="deck-kicker">La gira · reuniones informativas</span>
+          <h2 className="deck-titulo mt-3">Nos vemos en tu región</h2>
+          <GiraDinamica pais={g} />
+        </>
+      ),
+    },
+
+    /* 18 · ¿A quién le interesa? */
+    {
+      nombre: "¿A quién le interesa?",
+      fondo: null,
+      entrada: "palabras",
       contenido: (
         <div className="text-center">
           <h2 className="deck-titulo-portada">
-            Tu +1 te está <span className="texto-verde">esperando</span>.
+            <Palabras texto="¿A quién le interesa?" />
+          </h2>
+          <p className="mt-10 text-[clamp(1.4rem,3vw,2.4rem)] font-bold text-white/90">
+            Levanta la mano 🙋 — o escanea y entra.
+          </p>
+        </div>
+      ),
+    },
+
+    /* 19 · Grupo de WhatsApp */
+    {
+      nombre: "Grupo de WhatsApp",
+      fondo: null,
+      entrada: "escala",
+      contenido: (
+        <div className="flex flex-col items-center text-center">
+          <span className="deck-kicker">El grupo de WhatsApp</span>
+          <h2 className="deck-titulo mt-3">Aquí va TODO del programa</h2>
+          <div className="qr-blanco mt-10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/qr-grupo-wa.png"
+              alt="Código QR del grupo de WhatsApp del Programa +1"
+              className="qr-imagen"
+            />
+          </div>
+          <a href={GRUPO_WA} target="_blank" rel="noreferrer" className="deck-boton-verde mt-8">
+            Unirme al grupo
+          </a>
+          <p className="mt-4 font-mono text-base text-white/60">{GRUPO_WA_CORTA}</p>
+        </div>
+      ),
+    },
+
+    /* 20 · ¿Eres tú? — el cierre de la búsqueda */
+    {
+      nombre: "¿Eres tú?",
+      fondo: null,
+      entrada: "fade-up",
+      contenido: (
+        <div className="flex flex-col items-center text-center">
+          <h2 className="deck-titulo-portada">
+            ¿Eres <span className="texto-verde">tú</span>?
           </h2>
           <p className="mt-5 text-[clamp(1.3rem,2.6vw,2rem)] font-bold text-white/90">
-            Nos vemos en la gira.
+            Nos vemos en la gira:
           </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-8 sm:flex-row">
+          <div className="mt-10 flex flex-col items-center justify-center gap-8 sm:flex-row sm:gap-12">
             <div className="qr-blanco qr-chico">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/qr-grupo-wa.png"
-                alt="Código QR del grupo de WhatsApp de Synergy +1"
+                alt="Código QR del grupo de WhatsApp del Programa +1"
                 className="qr-imagen-chica"
               />
             </div>
-            <ul className="space-y-2 text-left text-lg text-white/80 lg:text-xl">
-              {GIRA.map((r) => (
-                <li key={r.ciudad}>
-                  <strong className={r.pais === g ? "texto-verde" : "text-white"}>
-                    {r.ciudad}
-                  </strong>{" "}
-                  · {r.fecha} · {r.local} hora local
-                </li>
-              ))}
-            </ul>
+            <GiraCompacta pais={g} />
           </div>
         </div>
       ),
     },
 
-    /* 18 · Preguntas */
+    /* 21 · Preguntas */
     {
       nombre: "Preguntas",
       fondo: null,

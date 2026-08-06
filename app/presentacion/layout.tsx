@@ -7,8 +7,8 @@ import type { ReactNode } from "react";
  * Solo aplica mientras una ruta de /presentacion está montada. */
 
 export const metadata: Metadata = {
-  title: "Presentación · Synergy +1",
-  description: "Presentación oficial de Synergy +1 para la comunidad del Club Sinergético.",
+  title: "Presentación · Programa +1",
+  description: "Presentación oficial del Programa +1 para la comunidad del Club Sinergético.",
 };
 
 const CSS_PRESENTACION = `

@@ -23,7 +23,7 @@ export async function generateMetadata({
   const { mercado } = await params;
   return {
     title:
-      mercado === "us" ? "Presentación USA · Synergy +1" : "Presentación MX · Synergy +1",
+      mercado === "us" ? "Presentación USA · Programa +1" : "Presentación MX · Programa +1",
   };
 }
 

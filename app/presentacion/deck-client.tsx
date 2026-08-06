@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { slidesMX, slidesUS, type Mercado, type Slide } from "./slides";
 
-/** Deck de la presentación Synergy +1.
+/** Deck de la presentación del Programa +1.
  * Navegación: ← → · espacio · PageUp/PageDown (control remoto) · Home/End ·
  * swipe táctil · flechas en pantalla. F = pantalla completa.
  * El chrome inferior SIEMPRE lleva fondo sólido (lección del proyecto). */
@@ -22,10 +22,19 @@ const CSS_DECK = `
   position: absolute; inset: 0;
   background-size: cover; background-position: center;
 }
-/* Velo oscuro obligatorio: el texto siempre gana sobre la foto */
+/* Velo oscuro obligatorio (≥0.78): el texto siempre gana sobre la foto */
 .deck-velo {
   position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(6,10,8,0.74) 0%, rgba(6,10,8,0.80) 55%, rgba(6,10,8,0.90) 100%);
+  background: linear-gradient(180deg, rgba(6,10,8,0.78) 0%, rgba(6,10,8,0.82) 55%, rgba(6,10,8,0.90) 100%);
+}
+/* Descansos visuales: la foto respira, la frase manda con su sombra */
+.deck-velo-suave {
+  background: linear-gradient(180deg, rgba(6,10,8,0.52) 0%, rgba(6,10,8,0.60) 55%, rgba(6,10,8,0.74) 100%);
+}
+.deck-frase-descanso {
+  font-size: clamp(2.4rem, 7.5vw, 6.5rem);
+  font-weight: 800; line-height: 1.04; letter-spacing: -0.02em;
+  text-shadow: 0 6px 40px rgba(2,6,4,0.85), 0 2px 12px rgba(2,6,4,0.7);
 }
 .deck-slide {
   position: absolute; inset: 0; overflow-y: auto;
@@ -269,6 +278,13 @@ export default function DeckClient({ mercado }: { mercado: Mercado }) {
     });
   }, [slides]);
 
+  /* Calienta /api/eventos al abrir el deck: cuando llegue la slide de la
+   * gira, la caché del servidor ya está tibia. Si falla, la slide muestra
+   * su propio aviso — aquí no hay nada que reportar. */
+  useEffect(() => {
+    void fetch("/api/eventos").catch(() => undefined);
+  }, []);
+
   const alTocar = (e: React.TouchEvent) => {
     toqueX.current = e.touches[0]?.clientX ?? null;
   };
@@ -298,7 +314,10 @@ export default function DeckClient({ mercado }: { mercado: Mercado }) {
         className={`deck-fondo${slide.entrada === "zoom-fondo" ? " deck-fondo-zoom" : ""}`}
         style={slide.fondo ? { backgroundImage: `url(${slide.fondo})` } : undefined}
       />
-      <div aria-hidden="true" className="deck-velo" />
+      <div
+        aria-hidden="true"
+        className={`deck-velo${slide.velo === "suave" ? " deck-velo-suave" : ""}`}
+      />
 
       <section
         key={`slide-${indice}`}

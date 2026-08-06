@@ -18,7 +18,7 @@ export default function Header() {
         </Link>
         <span className="sec-tag">
           <span className="pulse inline-block h-1.5 w-1.5 rounded-full bg-[#19e16d]" />
-          1 + 1 = 3<span className="hidden sm:inline"> · Programa de afiliados</span>
+          1 + 1 = 3<span className="hidden sm:inline"> · Programa +1</span>
         </span>
       </div>
     </header>

@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties } from "react";
 
-/** Piezas compartidas de la presentación Synergy +1.
+/** Piezas compartidas de la presentación del Programa +1.
  * Las clases (.palabra, .cascada-item, .premio-*) viven en el CSS del deck. */
 
 /** Formato de dinero para sala/proyector: "$2,700 MXN" · "$359 USD".

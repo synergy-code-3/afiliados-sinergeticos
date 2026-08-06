@@ -57,6 +57,27 @@ boletera — no es un bug del portal.
 
 ---
 
+## Sesión 18c — 5-ago-2026 — Segunda ronda de Manuel: Programa +1 y deck con storytelling
+
+- **El programa se llama "Programa +1"** — jamás "programa de afiliados". Renombrado en
+  header, título de la app, globito de WhatsApp y todo el deck.
+- **Panel**: "Mis inscritos" va inmediatamente después del formulario de inscribir.
+- **Hero de la landing reemplazado** (Manuel pidió quitar la imagen anterior) por una
+  audiencia de negocios en ovación; `bg-gira.webp` también se regeneró (el anterior traía
+  pseudo-texto de IA visible).
+- **Deck reescrito con storytelling**: "Buscamos al siguiente REPRESENTANTE de Sinergéticos
+  en tu región" (convocatoria, no programa). 21 slides, 3 descansos visuales a sangre,
+  premios adelantados y comisiones al final. **La gira es DINÁMICA**: fetch a /api/eventos
+  filtrado por mercado, agrupando sesiones AM/PM por ciudad, tope 6 filas + "…y N fechas
+  más" — las fechas ya no pueden estar mal porque salen de la boletera.
+- **Separación total de mercados**: la versión US no menciona MXN ni ciudades MX y
+  viceversa (smoke automatizado en el deck = 0 cruces). Ganancias US actualizadas por
+  Manuel: **"$2,500 – $5,000 USD al mes, extra, desde tu casa, solo con tus conocidos"**.
+  La landing muestra una sola moneda según la zona horaria del visitante
+  (`components/tope-comision.tsx`).
+
+---
+
 ## Sesión 18b — 4-ago-2026 — Correcciones de Manuel (misma noche, desplegadas)
 
 Cuatro ajustes dictados por Manuel viendo el portal vivo, más un rebase sobre el hotfix
