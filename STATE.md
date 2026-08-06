@@ -32,6 +32,34 @@ gratuitos y el boleto le llega al invitado por WhatsApp al instante.
 
 ---
 
+## Sesión 20 — 5-ago-2026 — Celebración 3D, reenvío del pase, panel reordenado y cotejo boletera↔web
+
+Cuatro pedidos de Manuel, la misma noche:
+
+- **Celebración 3D al registrar** (`app/panel/secciones/celebracion.tsx`): overlay con el
+  Pase de Afiliado girando en 3D real, confetti con paralaje, monedas y el gancho dorado
+  "Esta puede ser otra comisión de $2,500" (tarifa 3m en la moneda del EVENTO) + CTA
+  "Registrar a otro". Accesible; con reduced-motion sale tarjeta estática.
+- **Editar y REENVIAR**: tras corregir datos de un invitado con boleto emitido, botón
+  directo "Reenviar el pase con los datos nuevos" (+ botón "Reenviar" con confirmación en
+  cada fila). `POST /api/inscripciones/[id]` con `{reenviar:true}` re-emite un pase NUEVO
+  con los datos actuales — el WhatsApp sale solo al dato corregido; el pase viejo queda
+  huérfano y el vigente es el de `ticket_id`.
+- **Panel reordenado**: Inscribir → Mis inscritos → Recursos → Tu dinero → Lo que has
+  generado → Premios → Equipo +1 → Mapa → Tutoriales → Prácticas.
+- **Cotejo boletera ↔ web del seminario** (`lib/cotejo.ts` + `/api/admin/cotejo-eventos`
+  + cron diario 13:00 UTC + sección en /admin): compara synergyticket.net/api/events
+  contra seminariodeemprendedoraempresariodigital.com/api/events **casando por UUID**
+  (viene en `presaleVipUrl` — jamás por nombre). Caché de datos 24 h con tag `cotejo`
+  (Next 16 exige `revalidateTag(tag, "max")`); botón "Actualizar ahora" en el admin.
+  Primer cotejo real: 7 cuadran, **13 eventos de la web sin liga a la boletera**
+  (Dallas, Monterrey, CDMX, Querétaro, GDL, Tijuana…) y ~10 activos en boletera sin
+  aparecer ligados en la web — accionable para el equipo de la web.
+- Trampa nueva de iCloud: los fantasmas `* 2.*` REAPARECEN solos en `.next/` durante la
+  sesión (sync). Limpiar antes de CADA tsc/build, no una sola vez.
+
+---
+
 ## Sesión 19 — 5-ago-2026 — El invitado ya recibe el Pase de Afiliado
 
 Los invitados de un afiliado ya NO reciben el mismo boleto que las landings.

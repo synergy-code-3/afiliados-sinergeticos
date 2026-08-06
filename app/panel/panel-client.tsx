@@ -949,6 +949,22 @@ export default function PanelClient({
           )}
         </section>
 
+        {recursos.length > 0 ? (
+          <section className="a3 mt-12">
+            <p className="sec-tag mb-1">Material para compartir</p>
+            <h2 className="text-xl font-bold">Recursos</h2>
+            <p className="mt-1 text-sm text-white/55">
+              Descárgalos o mándalos directo por WhatsApp a tus contactos.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {recursos.map((r) => (
+                <div key={r.id} className="glass flex flex-col p-5">
+                  <span className="sec-tag">{TIPO_LABEL[r.tipo] ?? "Recurso"}</span>
+                  <p className="mt-2 font-bold">{r.titulo}</p>
+                  {r.descripcion ? (
+                    <p className="mt-1 text-sm leading-relaxed text-white/55">{r.descripcion}</p>
+                  ) : null}
+
         {hayComisiones && misComisiones ? (
           <section className="a3 mt-12">
             <p className="sec-tag mb-1">Tu dinero</p>
@@ -1024,37 +1040,23 @@ export default function PanelClient({
           </section>
         ) : null}
 
+        {activo ? <SeccionPremios cerrados={cerrados} /> : null}
+
         {activo ? (
-          <>
-            <SeccionPremios cerrados={cerrados} />
-            <MapaComisiones />
-            <Equipo
-              dbListo={dbListo}
-              codigoRef={codigoRef}
-              miembros={equipo}
-              overridePorMoneda={overridePorMoneda}
-            />
-          </>
+          <Equipo
+            dbListo={dbListo}
+            codigoRef={codigoRef}
+            miembros={equipo}
+            overridePorMoneda={overridePorMoneda}
+          />
         ) : null}
+
+        {activo ? <MapaComisiones /> : null}
 
         <SeccionTutoriales />
         <SeccionPracticas />
 
-        {recursos.length > 0 ? (
-          <section className="a3 mt-12">
-            <p className="sec-tag mb-1">Material para compartir</p>
-            <h2 className="text-xl font-bold">Recursos</h2>
-            <p className="mt-1 text-sm text-white/55">
-              Descárgalos o mándalos directo por WhatsApp a tus contactos.
-            </p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {recursos.map((r) => (
-                <div key={r.id} className="glass flex flex-col p-5">
-                  <span className="sec-tag">{TIPO_LABEL[r.tipo] ?? "Recurso"}</span>
-                  <p className="mt-2 font-bold">{r.titulo}</p>
-                  {r.descripcion ? (
-                    <p className="mt-1 text-sm leading-relaxed text-white/55">{r.descripcion}</p>
-                  ) : null}
+
                   <div className="mt-5 flex flex-wrap gap-3">
                     <a
                       href={r.url}

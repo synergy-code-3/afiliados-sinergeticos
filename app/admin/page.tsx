@@ -9,6 +9,7 @@ import AdminMetricasPanel, { type AdminMetricas } from "./metricas";
 import AdminAdmins, { type Admin } from "./admins";
 import AdminVentas from "./ventas";
 import AdminRed, { type GrupoRed, type MiembroRed } from "./red";
+import AdminCotejo from "./cotejo";
 
 export const dynamic = "force-dynamic";
 
@@ -172,6 +173,8 @@ export default async function Admin() {
         <AdminVentas dbListo={dbListo} />
 
         <AdminRed dbListo={dbListo} arbol={arbol} />
+
+        <AdminCotejo />
 
         <details className="mt-10">
           <summary className="cursor-pointer text-sm font-semibold text-white/50 hover:text-white/70">
