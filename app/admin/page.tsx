@@ -163,9 +163,20 @@ export default async function Admin() {
               {totalEmitidos} boletos emitidos
             </p>
           </div>
-          <Link href="/panel" className="btn-ghost btn-press !px-4 !py-2 !text-sm">
-            ← Mi panel
-          </Link>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* El deck se abre en pestaña nueva: desde aquí se proyecta en junta. */}
+            <a
+              href="/presentacion"
+              target="_blank"
+              rel="noreferrer"
+              className="btn-cta btn-press !px-4 !py-2 !text-sm"
+            >
+              ▶ Abrir presentación
+            </a>
+            <Link href="/panel" className="btn-ghost btn-press !px-4 !py-2 !text-sm">
+              ← Mi panel
+            </Link>
+          </div>
         </div>
 
         {metricas ? <AdminMetricasPanel m={metricas} /> : null}
