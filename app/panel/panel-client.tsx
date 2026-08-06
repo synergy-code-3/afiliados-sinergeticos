@@ -7,9 +7,10 @@ import { supabaseBrowser } from "@/lib/supabase";
 import { buildE164, validarTelefono } from "@/lib/phone";
 import { ligaBoleto, estadoLegible } from "@/lib/boleto-ui";
 import { construirCsv, descargarCsv } from "@/lib/csv";
-import { COMISIONES_PAQUETE, PAGO_DIAS_HABILES, VALIDACION_HORAS } from "@/lib/comisiones";
+import { COMISIONES_PAQUETE, PAGO_DIAS_HABILES, VALIDACION_HORAS, dinero as dineroLib } from "@/lib/comisiones";
 import type { Metricas, MiembroEquipo, MisComisiones, TotalMoneda, VentaDeInscripcion } from "./page";
 import Equipo from "./secciones/equipo";
+import CelebracionRegistro from "./secciones/celebracion";
 import SeccionPremios from "./secciones/premios";
 import SeccionTutoriales from "./secciones/tutoriales";
 import SeccionPracticas from "./secciones/practicas";
@@ -142,6 +143,14 @@ export default function PanelClient({
   const [editMsg, setEditMsg] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
+  /** feedback instantáneo al registrar: overlay de celebración 3D */
+  const [celebracion, setCelebracion] = useState<{ nombre: string; comisionTexto: string } | null>(
+    null,
+  );
+  /** inscripción recién editada con boleto ya emitido → ofrecer reenvío */
+  const [reenviarSugerido, setReenviarSugerido] = useState<Inscripcion | null>(null);
+  /** confirmación en dos pasos del botón Reenviar por fila */
+  const [confirmandoReenvio, setConfirmandoReenvio] = useState<string | null>(null);
   const [editPerfil, setEditPerfil] = useState(false);
   const [perfilForm, setPerfilForm] = useState(perfil);
   const [perfilMsg, setPerfilMsg] = useState<{ ok: boolean; texto: string } | null>(null);
@@ -258,10 +267,11 @@ export default function PanelClient({
       if (!r.ok || !data.ok) {
         setMsg({ ok: false, texto: data.error ?? "No se pudo inscribir. Intenta de nuevo." });
       } else {
-        setMsg({
-          ok: true,
-          texto: `Listo — ${invNombre.trim()} ya tiene su boleto. Le llega por WhatsApp en un momento.`,
-        });
+        // feedback instantáneo: celebración 3D con el gancho de la comisión
+        // (tarifa de entrada 3 meses, en la moneda del EVENTO — nunca se mezclan)
+        const geo = evento.pais === "US" ? ("US" as const) : ("MX" as const);
+        const comisionTexto = dineroLib(COMISIONES_PAQUETE[geo]["3m"], geo === "US" ? "USD" : "MXN");
+        setCelebracion({ nombre: invNombre.trim(), comisionTexto });
         setInvNombre("");
         setInvEmail("");
         setInvTel("");
@@ -347,12 +357,15 @@ export default function PanelClient({
         setEditMsg(data.error ?? "No se pudo guardar.");
       } else {
         setEditando(null);
-        setAviso({
-          ok: true,
-          texto: data.boletoYaEmitido
-            ? "Datos corregidos. El boleto ya emitido conserva los datos anteriores, pero sigue siendo válido — mándaselo con “Copiar liga”."
-            : "Datos corregidos.",
-        });
+        if (data.boletoYaEmitido) {
+          setAviso({
+            ok: true,
+            texto: "Datos corregidos. ¿Se equivocaron de número o correo? Reenvía el pase con los datos nuevos:",
+          });
+          setReenviarSugerido({ ...i, ...edit });
+        } else {
+          setAviso({ ok: true, texto: "Datos corregidos." });
+        }
         router.refresh();
       }
     } catch {
@@ -372,6 +385,33 @@ export default function PanelClient({
         r.ok && data.ok
           ? { ok: true, texto: `Listo — el boleto de ${i.nombre} ya se emitió.` }
           : { ok: false, texto: data.error ?? "No se pudo emitir." },
+      );
+      if (r.ok && data.ok) router.refresh();
+    } catch {
+      setAviso({ ok: false, texto: "Error de conexión. Intenta de nuevo." });
+    }
+    setOcupado(null);
+  }
+
+  /** Re-emite el pase con los datos ACTUALES (corregidos) del invitado: el
+   * WhatsApp con el pase nuevo sale solo hacia el número/correo vigente. */
+  async function reenviarPase(i: Inscripcion) {
+    if (ocupado) return;
+    setAviso(null);
+    setConfirmandoReenvio(null);
+    setReenviarSugerido(null);
+    setOcupado(i.id);
+    try {
+      const r = await fetch(`/api/inscripciones/${i.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reenviar: true }),
+      });
+      const data = (await r.json()) as { ok?: boolean; error?: string };
+      setAviso(
+        r.ok && data.ok
+          ? { ok: true, texto: `Listo — el pase de ${i.nombre} salió de nuevo a su WhatsApp con los datos actuales.` }
+          : { ok: false, texto: data.error ?? "No se pudo reenviar. Intenta de nuevo." },
       );
       if (r.ok && data.ok) router.refresh();
     } catch {
@@ -710,6 +750,17 @@ export default function PanelClient({
               {aviso.texto}
             </p>
           ) : null}
+          {reenviarSugerido ? (
+            <button
+              onClick={() => reenviarPase(reenviarSugerido)}
+              disabled={ocupado === reenviarSugerido.id}
+              className="btn-cta btn-press mt-2 !px-4 !py-2.5 !text-sm"
+            >
+              {ocupado === reenviarSugerido.id
+                ? "Reenviando…"
+                : `Reenviar el pase a ${reenviarSugerido.nombre} con los datos nuevos →`}
+            </button>
+          ) : null}
           {inscripciones.length === 0 ? (
             <p className="mt-2 text-sm text-white/45">Aún no inscribes a nadie.</p>
           ) : (
@@ -853,6 +904,23 @@ export default function PanelClient({
                                   className="btn-ghost btn-press !px-3 !py-1.5 !text-xs"
                                 >
                                   {copiado === i.id ? "¡Copiada!" : "Copiar liga"}
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    confirmandoReenvio === i.id
+                                      ? reenviarPase(i)
+                                      : setConfirmandoReenvio(i.id)
+                                  }
+                                  disabled={ocupado === i.id}
+                                  className={`btn-ghost btn-press !px-3 !py-1.5 !text-xs ${
+                                    confirmandoReenvio === i.id ? "!border-[#d9b45b] !text-[#d9b45b]" : ""
+                                  }`}
+                                >
+                                  {ocupado === i.id
+                                    ? "Reenviando…"
+                                    : confirmandoReenvio === i.id
+                                      ? "¿Confirmar reenvío?"
+                                      : "Reenviar"}
                                 </button>
                               </>
                             ) : (
@@ -1008,6 +1076,17 @@ export default function PanelClient({
 
 
       </div>
+
+      <CelebracionRegistro
+        abierta={celebracion !== null}
+        nombreInvitado={celebracion?.nombre ?? ""}
+        comisionTexto={celebracion?.comisionTexto ?? ""}
+        onRegistrarOtro={() => {
+          setCelebracion(null);
+          document.getElementById("inv-nombre")?.focus();
+        }}
+        onCerrar={() => setCelebracion(null)}
+      />
     </main>
   );
 }

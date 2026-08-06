@@ -85,14 +85,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 }
 
 /** Reintenta emitir el boleto de una inscripción que quedó a medias.
- * Si ya está emitido no hace nada — jamás emite dos boletos para el mismo invitado. */
+ * Si ya está emitido no hace nada — jamás emite dos boletos para el mismo
+ * invitado… SALVO reenvío explícito: con { reenviar: true } en el body se
+ * emite un pase NUEVO con los datos ACTUALES de la inscripción (pedido de
+ * Manuel: si el afiliado se equivocó en un campo, lo corrige con Editar y el
+ * WhatsApp con el pase sale de nuevo hacia el dato corregido). El pase viejo
+ * queda huérfano en la boletera; el vigente es el de ticket_id. */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const cargado = await cargar(req, id);
   if (cargado.error) return cargado.error;
   const { service, insc } = cargado;
 
-  if (insc.status === "emitido" && insc.ticket_id) {
+  const body = (await req.json().catch(() => ({}))) as { reenviar?: boolean };
+
+  if (insc.status === "emitido" && insc.ticket_id && body.reenviar !== true) {
     return NextResponse.json({ error: "Ese invitado ya tiene su boleto." }, { status: 409 });
   }
 
