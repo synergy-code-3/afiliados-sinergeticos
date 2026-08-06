@@ -964,6 +964,24 @@ export default function PanelClient({
                   {r.descripcion ? (
                     <p className="mt-1 text-sm leading-relaxed text-white/55">{r.descripcion}</p>
                   ) : null}
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <a
+                      href={r.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-ghost btn-press !px-4 !py-2 !text-sm"
+                    >
+                      {r.tipo === "link" ? "Abrir" : "Descargar"}
+                    </a>
+                    <button onClick={() => compartirWa(r)} className="btn-cta btn-press !px-4 !py-2 !text-sm">
+                      Compartir por WhatsApp
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {hayComisiones && misComisiones ? (
           <section className="a3 mt-12">
@@ -1055,28 +1073,6 @@ export default function PanelClient({
 
         <SeccionTutoriales />
         <SeccionPracticas />
-
-
-                  <div className="mt-5 flex flex-wrap gap-3">
-                    <a
-                      href={r.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-ghost btn-press !px-4 !py-2 !text-sm"
-                    >
-                      {r.tipo === "link" ? "Abrir" : "Descargar"}
-                    </a>
-                    <button onClick={() => compartirWa(r)} className="btn-cta btn-press !px-4 !py-2 !text-sm">
-                      Compartir por WhatsApp
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-
       </div>
 
       <CelebracionRegistro

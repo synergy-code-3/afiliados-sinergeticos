@@ -16,11 +16,19 @@
  * Chicago, Miami o Nueva York — el evento no se pierde: aparece como ficha
  * bajo el mapa.
  *
+ * Orden a prueba de fallas: los eventos de cada ciudad van por fecha
+ * ascendente, y las listas bajo el mapa (fichas de ciudad y eventos fuera
+ * del recorte) van primero México y luego Estados Unidos, por fecha. Las
+ * etiquetas de ciudad se acomodan solas: lado fijo por ciudad, empujón
+ * vertical determinístico si dos quedarían a menos de 16px, y en racimos
+ * densos (3+ ciudades juntas) solo se ve el punto con su conteo — el nombre
+ * vive en el tooltip y en la ficha.
+ *
  * Cero dependencias nuevas. Los montos vienen de lib/comisiones —
  * aquí no vive ningún precio.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   COMISIONES_PAQUETE,
   PAQUETE_LABEL,
@@ -55,13 +63,13 @@ interface CiudadGazetteer {
 const GAZETTEER: readonly CiudadGazetteer[] = [
   // México
   { nombre: "Tijuana", alias: ["tijuana"], lat: 32.5149, lon: -117.0382, etiqueta: "izq" },
-  { nombre: "Mexicali", alias: ["mexicali"], lat: 32.6245, lon: -115.4523, etiqueta: "abajo" },
+  { nombre: "Mexicali", alias: ["mexicali"], lat: 32.6633, lon: -115.4678, etiqueta: "abajo" },
   { nombre: "Ciudad Juárez", alias: ["ciudad juarez", "cd. juarez", "cd juarez", "juarez"], lat: 31.6904, lon: -106.4245, etiqueta: "abajo" },
-  { nombre: "Chihuahua", alias: ["chihuahua"], lat: 28.632, lon: -106.0691, etiqueta: "der" },
+  { nombre: "Chihuahua", alias: ["chihuahua"], lat: 28.6353, lon: -106.0889, etiqueta: "der" },
   { nombre: "Hermosillo", alias: ["hermosillo"], lat: 29.0729, lon: -110.9559, etiqueta: "der" },
   { nombre: "Culiacán", alias: ["culiacan"], lat: 24.8091, lon: -107.394, etiqueta: "der" },
   { nombre: "Monterrey", alias: ["monterrey"], lat: 25.6866, lon: -100.3161, etiqueta: "der" },
-  { nombre: "Guadalajara", alias: ["guadalajara", "zapopan", "gdl"], lat: 20.6597, lon: -103.3496, etiqueta: "izq" },
+  { nombre: "Guadalajara", alias: ["guadalajara", "zapopan", "gdl"], lat: 20.6597, lon: -103.3496, etiqueta: "der" },
   { nombre: "Puerto Vallarta", alias: ["puerto vallarta", "vallarta"], lat: 20.6534, lon: -105.2253, etiqueta: "izq" },
   { nombre: "Aguascalientes", alias: ["aguascalientes"], lat: 21.8853, lon: -102.2916, etiqueta: "arriba" },
   { nombre: "León", alias: ["leon"], lat: 21.125, lon: -101.686, etiqueta: "arriba" },
@@ -71,8 +79,8 @@ const GAZETTEER: readonly CiudadGazetteer[] = [
   { nombre: "CDMX", alias: ["cdmx", "ciudad de mexico", "mexico city"], lat: 19.4326, lon: -99.1332, etiqueta: "arriba" },
   { nombre: "Puebla", alias: ["puebla"], lat: 19.0414, lon: -98.2063, etiqueta: "der" },
   { nombre: "Veracruz", alias: ["veracruz"], lat: 19.1738, lon: -96.1342, etiqueta: "der" },
-  { nombre: "Oaxaca", alias: ["oaxaca"], lat: 17.0732, lon: -96.7266, etiqueta: "abajo" },
-  { nombre: "Mérida", alias: ["merida"], lat: 20.9674, lon: -89.5926, etiqueta: "arriba" },
+  { nombre: "Oaxaca", alias: ["oaxaca"], lat: 17.0654, lon: -96.7237, etiqueta: "abajo" },
+  { nombre: "Mérida", alias: ["merida"], lat: 20.9678, lon: -89.6217, etiqueta: "arriba" },
   { nombre: "Cancún", alias: ["cancun"], lat: 21.1619, lon: -86.8515, etiqueta: "izq" },
   // Estados Unidos
   { nombre: "Austin", alias: ["austin"], lat: 30.2672, lon: -97.7431, etiqueta: "arriba" },
@@ -111,6 +119,23 @@ type Carga =
   | { estado: "error" };
 
 const PAQUETES: readonly Paquete[] = ["3m", "6m", "12m"];
+
+/* ── Orden a prueba de fallas ────────────────────────────────────────────────
+ * Dentro de cada ciudad (tooltip y panel) los eventos van por fecha
+ * ascendente. Las fichas de ciudad y los eventos fuera del recorte van
+ * primero México y luego Estados Unidos, y dentro por fecha. El nombre
+ * desempata: mismos datos, mismo orden, siempre. */
+
+const tiempoDe = (e: EventoApi): number => {
+  const t = Date.parse(e.date);
+  return Number.isNaN(t) ? Number.MAX_SAFE_INTEGER : t;
+};
+
+const porFecha = (a: EventoApi, b: EventoApi): number =>
+  tiempoDe(a) - tiempoDe(b) || a.name.localeCompare(b.name);
+
+/** Aquí no hay usuario con región: primero México, luego Estados Unidos. */
+const ordenPais = (g: Geografia): number => (g === "MX" ? 0 : 1);
 
 /* ── Matching de ciudades ─────────────────────────────────────────────────────
  * Se normaliza (minúsculas, sin acentos) y se busca cada alias como subcadena
@@ -168,6 +193,12 @@ interface Suelto {
   sinCiudad: boolean;
 }
 
+/** Fecha del evento más próximo del pin (sus eventos ya van por fecha). */
+const primeraFecha = (p: Pin): number => {
+  const primero = p.eventos[0];
+  return primero ? tiempoDe(primero) : Number.MAX_SAFE_INTEGER;
+};
+
 function repartir(eventos: readonly EventoApi[]): {
   pines: readonly Pin[];
   sueltos: readonly Suelto[];
@@ -180,16 +211,26 @@ function repartir(eventos: readonly EventoApi[]): {
   const pines = GAZETTEER.flatMap((ciudad): Pin[] => {
     const delPin = clasificados
       .filter((c) => c.enMapa && c.ciudad === ciudad)
-      .map((c) => c.evento);
+      .map((c) => c.evento)
+      .sort(porFecha);
     const primero = delPin[0];
     if (!primero) return [];
     return [
       { ciudad, x: xDeLon(ciudad.lon), y: yDeLat(ciudad.lat), pais: primero.pais, eventos: delPin },
     ];
-  });
+  }).sort(
+    (a, b) =>
+      ordenPais(a.pais) - ordenPais(b.pais) ||
+      primeraFecha(a) - primeraFecha(b) ||
+      a.ciudad.nombre.localeCompare(b.ciudad.nombre),
+  );
   const sueltos = clasificados
     .filter((c) => !c.enMapa)
-    .map((c) => ({ evento: c.evento, sinCiudad: c.ciudad === null }));
+    .map((c) => ({ evento: c.evento, sinCiudad: c.ciudad === null }))
+    .sort(
+      (a, b) =>
+        ordenPais(a.evento.pais) - ordenPais(b.evento.pais) || porFecha(a.evento, b.evento),
+    );
   return { pines, sueltos };
 }
 
@@ -266,16 +307,132 @@ const claseTooltip = (pin: Pin): string => {
   return h + v;
 };
 
+/* ── Acomodo de etiquetas: que los racimos no se encimen ─────────────────────
+ * Determinístico y a escala nominal (~0.8px CSS por unidad de viewBox, el
+ * ancho típico del mapa donde hay etiquetas). Reglas, en este orden:
+ *   1. Racimo denso — 3+ ciudades a menos de 44px entre sí (Bajío con todo
+ *      encendido): esas no llevan nombre, solo punto y conteo; el nombre
+ *      vive en el tooltip y en la ficha.
+ *   2. Lado fijo por ciudad (el campo `etiqueta` del gazetteer).
+ *   3. Si aun así una etiqueta quedaría a menos de 16px de otra etiqueta, o
+ *      pisaría el punto de otra ciudad (GDL y Vallarta), la que sigue en el
+ *      recorrido norte→sur se corre en vertical hasta librar — hacia arriba
+ *      si su lado es "arriba", hacia abajo en los demás casos. */
+
+const ESCALA_NOMINAL = 0.8; // px CSS por unidad de viewBox
+const SEPARACION_MIN_PX = 16;
+const RADIO_RACIMO_PX = 44;
+const VECINOS_RACIMO = 2; // con 2 vecinos así de cerca ya son 3 ciudades
+const ANCHO_LETRA_PX = 7; // fuente de 11px + letter-spacing
+const ALTO_ETIQUETA_PX = 13;
+const OFFSET_VERTICAL_PX = 14; // borde de la etiqueta arriba/abajo del pin
+const OFFSET_LATERAL_PX = 16; // borde de la etiqueta a un lado del pin
+const RADIO_PUNTO_PX = 12; // caja del punto de otra ciudad (obstáculo)
+const HOLGURA_PUNTO_PX = 2; // colchón al librar un punto
+const MAX_INTENTOS_ACOMODO = 6;
+
+interface RectPx {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+interface EtiquetaAcomodada {
+  visible: boolean;
+  /** Desplazamiento vertical extra (px CSS) para no encimarse. */
+  dy: number;
+}
+
+const rectEtiqueta = (pin: Pin, dy: number): RectPx => {
+  const cx = pin.x * ESCALA_NOMINAL;
+  const cy = pin.y * ESCALA_NOMINAL + dy;
+  const ancho = pin.ciudad.nombre.length * ANCHO_LETRA_PX;
+  const media = ALTO_ETIQUETA_PX / 2;
+  switch (pin.ciudad.etiqueta) {
+    case "arriba":
+      return {
+        x1: cx - ancho / 2,
+        x2: cx + ancho / 2,
+        y1: cy - OFFSET_VERTICAL_PX - ALTO_ETIQUETA_PX,
+        y2: cy - OFFSET_VERTICAL_PX,
+      };
+    case "abajo":
+      return {
+        x1: cx - ancho / 2,
+        x2: cx + ancho / 2,
+        y1: cy + OFFSET_VERTICAL_PX,
+        y2: cy + OFFSET_VERTICAL_PX + ALTO_ETIQUETA_PX,
+      };
+    case "izq":
+      return { x1: cx - OFFSET_LATERAL_PX - ancho, x2: cx - OFFSET_LATERAL_PX, y1: cy - media, y2: cy + media };
+    case "der":
+      return { x1: cx + OFFSET_LATERAL_PX, x2: cx + OFFSET_LATERAL_PX + ancho, y1: cy - media, y2: cy + media };
+  }
+};
+
+/** Holgura vertical entre rectángulos: negativa si se pisan de verdad. */
+const seEstorban = (a: RectPx, b: RectPx, separacion: number): boolean => {
+  if (a.x2 < b.x1 || b.x2 < a.x1) return false;
+  const holguraY = a.y1 > b.y2 ? a.y1 - b.y2 : b.y1 > a.y2 ? b.y1 - a.y2 : -1;
+  return holguraY < separacion;
+};
+
+/** Caja del punto de una ciudad: obstáculo que ninguna etiqueta debe pisar. */
+const rectPunto = (pin: Pin): RectPx => ({
+  x1: pin.x * ESCALA_NOMINAL - RADIO_PUNTO_PX,
+  x2: pin.x * ESCALA_NOMINAL + RADIO_PUNTO_PX,
+  y1: pin.y * ESCALA_NOMINAL - RADIO_PUNTO_PX,
+  y2: pin.y * ESCALA_NOMINAL + RADIO_PUNTO_PX,
+});
+
+function acomodarEtiquetas(pines: readonly Pin[]): ReadonlyMap<string, EtiquetaAcomodada> {
+  const enRacimo = (pin: Pin): boolean =>
+    pines.filter(
+      (otro) =>
+        otro !== pin &&
+        Math.hypot((otro.x - pin.x) * ESCALA_NOMINAL, (otro.y - pin.y) * ESCALA_NOMINAL) <
+          RADIO_RACIMO_PX,
+    ).length >= VECINOS_RACIMO;
+  const puntos = pines.map(rectPunto);
+  // Recorrido norte→sur (y oeste→este): mismo dato, mismo acomodo.
+  const orden = [...pines].sort((a, b) => a.y - b.y || a.x - b.x);
+  const colocadas: RectPx[] = [];
+  const acomodo = new Map<string, EtiquetaAcomodada>();
+  for (const pin of orden) {
+    if (enRacimo(pin)) {
+      acomodo.set(pin.ciudad.nombre, { visible: false, dy: 0 });
+      continue;
+    }
+    const direccion = pin.ciudad.etiqueta === "arriba" ? -1 : 1;
+    let dy = 0;
+    for (let intento = 0; intento < MAX_INTENTOS_ACOMODO; intento++) {
+      const rect = rectEtiqueta(pin, dy);
+      const contraEtiqueta = colocadas.find((otra) => seEstorban(rect, otra, SEPARACION_MIN_PX));
+      const choque = contraEtiqueta ?? puntos.find((p) => seEstorban(rect, p, 0));
+      if (!choque) break;
+      const holgura = contraEtiqueta ? SEPARACION_MIN_PX : HOLGURA_PUNTO_PX;
+      dy += direccion === -1 ? choque.y1 - holgura - rect.y2 : choque.y2 + holgura - rect.y1;
+    }
+    colocadas.push(rectEtiqueta(pin, dy));
+    acomodo.set(pin.ciudad.nombre, { visible: true, dy });
+  }
+  return acomodo;
+}
+
 /* ── Contornos ────────────────────────────────────────────────────────────────
  * La frontera MX–US es la MISMA polilínea en ambos países para que embonen:
- * Tijuana → San Luis Río Colorado → Nogales → El Paso/Juárez → Río Bravo →
- * Laredo → Brownsville. */
+ * Tijuana (32.53°N) → Río Colorado en Mexicali/Calexico (32.72°N) → San Luis
+ * Río Colorado → Nogales → El Paso/Juárez → Río Bravo → Laredo → Brownsville.
+ * El tramo de California SUBE hacia el este (la frontera real va de 32.53°N a
+ * 32.72°N): así Mexicali (32.66°N) queda del lado mexicano, como en la vida
+ * real. */
 
 /** Sur de Estados Unidos, recortado arriba (~36.5°N) y a la derecha (~85°O):
  * costa de California, frontera, Texas completo y costa del Golfo. */
 const D_US =
-  "M78 40 L113 95 L170 115 L198 144 L199 146 " + // costa de California
-  "L258 146 L350 178 L420 178 L420 166 L463 167 " + // frontera oeste
+  "M78 40 L113 95 L170 115 L196 141 L199 145 " + // costa de California
+  "L257 140 L255 147 L350 178 L420 178 L420 166 L463 167 " + // frontera oeste
   "L548 235 L588 227 L638 280 L688 323 " + // Río Bravo hasta Brownsville
   "L690 272 L755 232 L825 224 L890 235 L938 205 L1000 203 " + // costa del Golfo
   "L1000 40 Z";
@@ -283,10 +440,10 @@ const D_US =
 /** México completo: frontera, Golfo, Yucatán, Caribe, Chiapas, Pacífico,
  * Mar de Cortés y la península de Baja California hasta Los Cabos. */
 const D_MX =
-  "M199 146 L258 146 L350 178 L420 178 L420 166 L463 167 " + // frontera
+  "M199 145 L257 140 L255 147 L350 178 L420 178 L420 166 L463 167 " + // frontera
   "L548 235 L588 227 L638 280 L688 323 " + // Río Bravo
   "L679 421 L722 501 L765 529 L830 516 L863 484 L868 453 " + // Golfo y Campeche
-  "L948 437 L954 449 L939 475 L918 520 " + // Yucatán y Caribe
+  "L948 437 L957 450 L939 475 L918 520 " + // Yucatán (punta en Cancún) y Caribe
   "L896 539 L851 538 L818 621 " + // Belice, Guatemala, Chiapas
   "L745 581 L628 564 L570 533 L518 505 L483 469 L465 395 L428 352 L353 269 L288 179 " + // Pacífico
   "L261 168 L254 187 L288 243 L318 285 L341 320 L368 369 L378 403 " + // Mar de Cortés (lado este de Baja)
@@ -296,7 +453,7 @@ const D_MX =
 const D_ESTADOS =
   "M463 167 L466 160 L550 160 L550 40 " + // oeste de Texas y su panhandle
   "M625 40 L625 92 L774 117 L782 173 L779 229 " + // Río Rojo y frontera con Luisiana
-  "M209 40 L259 80 L258 141"; // límite este de California
+  "M209 40 L259 80 L257 140"; // límite este de California
 
 function TarjetaComision({ g }: { g: Geografia }) {
   const moneda = monedaDe(g);
@@ -357,6 +514,7 @@ export default function MapaComisiones() {
     () => repartir(carga.estado === "listo" ? carga.eventos : []),
     [carga],
   );
+  const etiquetas = useMemo(() => acomodarEtiquetas(pines), [pines]);
   const pinActivo = pines.find((p) => p.ciudad.nombre === activo) ?? null;
   const sinEventos =
     carga.estado === "error" || (carga.estado === "listo" && carga.eventos.length === 0);
@@ -410,6 +568,7 @@ export default function MapaComisiones() {
             {pines.map((pin) => {
               const abierta = activo === pin.ciudad.nombre;
               const tono = pin.pais === "MX" ? "mx" : "us";
+              const eti = etiquetas.get(pin.ciudad.nombre) ?? { visible: true, dy: 0 };
               return (
                 <div
                   key={pin.ciudad.nombre}
@@ -432,9 +591,15 @@ export default function MapaComisiones() {
                     <span className={`mco-punto mco-fondo-${tono}`} aria-hidden="true">
                       {pin.eventos.length > 1 ? pin.eventos.length : ""}
                     </span>
-                    <span className={`mco-eti mco-eti-${pin.ciudad.etiqueta}`} aria-hidden="true">
-                      {pin.ciudad.nombre}
-                    </span>
+                    {eti.visible ? (
+                      <span
+                        className={`mco-eti mco-eti-${pin.ciudad.etiqueta}`}
+                        style={{ "--eti-dy": `${eti.dy}px` } as CSSProperties}
+                        aria-hidden="true"
+                      >
+                        {pin.ciudad.nombre}
+                      </span>
+                    ) : null}
                   </button>
 
                   {/* El botón ya dice todo esto en su aria-label. */}
@@ -672,10 +837,11 @@ export default function MapaComisiones() {
           text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
           pointer-events: none;
         }
-        .mco-eti-arriba { bottom: 36px; left: 50%; transform: translateX(-50%); }
-        .mco-eti-abajo  { top: 36px; left: 50%; transform: translateX(-50%); }
-        .mco-eti-izq    { right: 38px; top: 50%; transform: translateY(-50%); }
-        .mco-eti-der    { left: 38px; top: 50%; transform: translateY(-50%); }
+        /* --eti-dy: empujón vertical del acomodo determinístico (0 si libra). */
+        .mco-eti-arriba { bottom: 36px; left: 50%; transform: translateX(-50%) translateY(var(--eti-dy, 0px)); }
+        .mco-eti-abajo  { top: 36px; left: 50%; transform: translateX(-50%) translateY(var(--eti-dy, 0px)); }
+        .mco-eti-izq    { right: 38px; top: 50%; transform: translateY(calc(-50% + var(--eti-dy, 0px))); }
+        .mco-eti-der    { left: 38px; top: 50%; transform: translateY(calc(-50% + var(--eti-dy, 0px))); }
 
         /* ── Tooltip (pantallas medianas en adelante) ── */
         .mco-tooltip {
@@ -853,13 +1019,12 @@ export default function MapaComisiones() {
           .mco-leyendas { grid-template-columns: 1fr 1fr; }
         }
 
-        /* En grande, las tarjetas flotan sobre los océanos del mapa. */
-        @media (min-width: 1024px) {
-          .mco-leyendas { margin-top: 0; }
-          .mco-ley { position: absolute; width: 260px; z-index: 20; }
-          .mco-ley-mx { left: 22px; bottom: 22px; }
-          .mco-ley-us { right: 22px; top: 22px; }
-        }
+        /* Las tarjetas ya NO flotan sobre el mapa en grande: la de USA
+           (arriba a la derecha) tapaba a Houston y su etiqueta con la gira
+           de Texas encendida, y cualquier esquina tapa a alguna ciudad del
+           gazetteer en algún ancho (Tijuana/Mexicali arriba a la izquierda,
+           Yucatán abajo a la derecha). El mapa queda limpio y las tarjetas
+           viven debajo, lado a lado. */
 
         @keyframes mco-onda {
           from { transform: scale(0.5); opacity: 0.85; }
