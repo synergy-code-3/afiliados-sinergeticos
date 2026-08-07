@@ -17,15 +17,36 @@ export default function NuevaContrasena() {
 
   useEffect(() => {
     const supabase = supabaseBrowser();
-    // La liga del correo trae ?code= (PKCE) o #access_token= (implícito). El
-    // cliente del navegador puede canjearla solo; si no, la canjeamos a mano.
+    // La liga del correo trae `?token_hash=`. Se canjea con verifyOtp, que NO
+    // necesita nada guardado en este navegador: por eso funciona aunque la
+    // persona pida la liga en la compu y abra el correo en el celular, o desde
+    // el navegador interno de Yahoo/Gmail.
+    //
+    // ⚠️ No volver a PKCE (`?code=` + exchangeCodeForSession). PKCE exige el
+    // `code_verifier` que quedó en el navegador que PIDIÓ la liga; en cualquier
+    // otro sale "liga vencida" con una liga recién hecha. Eso tuvo bloqueados a
+    // los afiliados hasta el 6-ago-2026 — se atendía como si fuera el correo.
+    //
+    // `?code=` y `#access_token=` siguen aquí solo por las ligas viejas que
+    // todavía anden en bandejas de entrada.
     async function abrirSesion() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (session) return setEstado("listo");
 
-      const code = new URLSearchParams(window.location.search).get("code");
+      const params = new URLSearchParams(window.location.search);
+
+      const tokenHash = params.get("token_hash");
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({
+          type: "recovery",
+          token_hash: tokenHash,
+        });
+        return setEstado(error ? "invalido" : "listo");
+      }
+
+      const code = params.get("code");
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         return setEstado(error ? "invalido" : "listo");
