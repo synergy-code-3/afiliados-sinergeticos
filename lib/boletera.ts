@@ -10,16 +10,13 @@ const URL_INTERNA = "https://synergyticket.net/api/internal/tickets";
 /**
  * Tipo de boleto que se emite a los invitados de un afiliado.
  *
- * ⚠️ El tipo dedicado es `affiliate` (el naranja). En la boletera el tipo se
- * llama `general` por dentro, pero su pantalla lo rotula "Boleto de Afiliados" —
- * reutilizaron ese tipo y le cambiaron nombre y diseño el 4-ago-2026. Buscar
- * "afiliado" o "affiliate" en su base no devuelve nada; el mapeo está en su
- * bundle: `{ paid:"Boleto de Pago", general:"Boleto de Afiliados", free:"Boleto Gratuito" }`.
+ * `affiliate` imprime el pase naranja "PASE DE AFILIADO", que es como se
+ * distingue en la puerta a quién trajo un afiliado. Es de cortesía: no cobra.
  *
- * Antes se emitía `free`, el mismo boleto que dan las landings — no había forma
- * de distinguir en la puerta a quién trajo un afiliado.
- *
- * `general_price` viene vacío en los eventos, así que sigue siendo cortesía.
+ * Los tipos que acepta la boletera hoy son
+ * `free | general | affiliate | club-general | club-vip`; la API los enumera en
+ * el error si se le manda uno inválido, que es la forma de verificarlo sin
+ * emitir nada.
  */
 const TIPO_BOLETO_AFILIADO = "affiliate";
 
