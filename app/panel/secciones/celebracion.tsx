@@ -149,7 +149,7 @@ function PaseAfiliado({ nombreInvitado }: { nombreInvitado: string }) {
             <p className="cel-pase-etiqueta">Pase de Afiliado ·</p>
             <p className="cel-pase-nombre">{nombreInvitado}</p>
             <div className="cel-pase-pie">
-              <span className="cel-chip-vip">VIP · Cortesía</span>
+              <span className="cel-chip-cortesia">Cortesía</span>
               <span className="cel-pase-filosofia">1 + 1 = 3</span>
             </div>
             <span className="cel-brillo" aria-hidden="true" />
@@ -413,7 +413,7 @@ export default function CelebracionRegistro({
           margin-top: 16px;
           display: flex; align-items: center; justify-content: space-between; gap: 12px;
         }
-        .cel-chip-vip {
+        .cel-chip-cortesia {
           display: inline-flex; align-items: center;
           padding: 6px 12px; border-radius: 999px;
           font-size: 12px; font-weight: 800; letter-spacing: 0.08em;

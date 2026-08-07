@@ -119,7 +119,7 @@ function MockPaseVip() {
   return (
     <MarcoCaptura
       titulo="El WhatsApp de tu invitado"
-      descripcion="Así le llega a tu invitado su pase VIP por WhatsApp: un mensaje con su nombre y la liga de su boleto, al instante."
+      descripcion="Así le llega a tu invitado su Pase de Afiliado por WhatsApp: un mensaje con su nombre y la liga de su boleto, al instante."
     >
       <div className="mk-wa">
         <div className="mk-wa-header">
@@ -132,11 +132,11 @@ function MockPaseVip() {
         <div className="mk-wa-chat">
           <div className="mk-wa-burbuja">
             <p className="mk-wa-texto">
-              🎟️ ¡Hola Laura! Aquí está tu pase VIP de cortesía para el Seminario de
+              🎟️ ¡Hola Laura! Aquí está tu Pase de Afiliado de cortesía para el Seminario de
               Emprendedor a Empresario Digital. Te esperamos 🙌
             </p>
             <span className="mk-wa-liga">
-              <span className="mk-wa-liga-titulo">Tu boleto · Pase VIP</span>
+              <span className="mk-wa-liga-titulo">Tu boleto · Pase de Afiliado</span>
               <span className="mk-wa-liga-url">synergyticket.net/ticket/8FK2…</span>
             </span>
             <span className="mk-wa-meta">
@@ -284,9 +284,9 @@ const TUTORIALES: Tutorial[] = [
           "Solo su nombre y su WhatsApp. El correo es opcional — si no lo tienes a la mano, no pasa nada.",
       },
       {
-        titulo: "Su pase VIP llega solo",
+        titulo: "Su Pase de Afiliado llega solo",
         detalle:
-          "El pase VIP de cortesía le llega a tu invitado por WhatsApp al instante, sin que tú hagas nada más.",
+          "El Pase de Afiliado de cortesía le llega a tu invitado por WhatsApp al instante, sin que tú hagas nada más.",
       },
       {
         titulo: "Refuérzalo tú",
@@ -297,7 +297,7 @@ const TUTORIALES: Tutorial[] = [
   },
   {
     id: "pase-vip",
-    titulo: "Cómo se genera el pase VIP de cortesía",
+    titulo: "Cómo se genera el Pase de Afiliado",
     resumen: "Qué pasa por dentro cuando inscribes a alguien.",
     mock: <MockPaseVip />,
     icono: (
@@ -312,7 +312,7 @@ const TUTORIALES: Tutorial[] = [
       {
         titulo: "El sistema emite su boleto",
         detalle:
-          "Al inscribirlo, su boleto se genera en la boletera oficial de Sinergéticos — es un pase VIP de cortesía real, con su nombre.",
+          "Al inscribirlo, su boleto se genera en la boletera oficial de Sinergéticos — es un Pase de Afiliado de cortesía real, con su nombre.",
       },
       {
         titulo: "Le llega por WhatsApp",
@@ -341,7 +341,7 @@ const TUTORIALES: Tutorial[] = [
     pasos: [
       {
         titulo: "Tu invitado vive el seminario",
-        detalle: "Va con su pase VIP de cortesía, sin costo para él.",
+        detalle: "Va con su Pase de Afiliado de cortesía, sin costo para él.",
       },
       {
         titulo: "Si compra, tú ganas",

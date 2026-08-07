@@ -12,7 +12,7 @@ const PASOS = [
   [
     "02",
     "Invita a tus +1 al Seminario",
-    "Inscribe a tus invitados al Seminario de Emprendedor a Empresario Digital: su pase VIP de cortesía les llega por WhatsApp al instante.",
+    "Inscribe a tus invitados al Seminario de Emprendedor a Empresario Digital: su Pase de Afiliado de cortesía les llega por WhatsApp al instante.",
   ],
   [
     "03",
