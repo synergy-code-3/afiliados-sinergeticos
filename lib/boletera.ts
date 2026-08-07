@@ -10,7 +10,7 @@ const URL_INTERNA = "https://synergyticket.net/api/internal/tickets";
 /**
  * Tipo de boleto que se emite a los invitados de un afiliado.
  *
- * ⚠️ `general` ES el "Pase de Afiliado" (el naranja). En la boletera el tipo se
+ * ⚠️ El tipo dedicado es `affiliate` (el naranja). En la boletera el tipo se
  * llama `general` por dentro, pero su pantalla lo rotula "Boleto de Afiliados" —
  * reutilizaron ese tipo y le cambiaron nombre y diseño el 4-ago-2026. Buscar
  * "afiliado" o "affiliate" en su base no devuelve nada; el mapeo está en su
@@ -21,18 +21,26 @@ const URL_INTERNA = "https://synergyticket.net/api/internal/tickets";
  *
  * `general_price` viene vacío en los eventos, así que sigue siendo cortesía.
  */
-const TIPO_BOLETO_AFILIADO = "free";
+const TIPO_BOLETO_AFILIADO = "affiliate";
 
-// 🔴 REVERTIDO el 6-ago-2026 — NO volver a poner "general" sin resolver esto.
+// Historia de este valor, para que nadie lo vuelva a mover a ciegas:
 //
-// Emitir `general` estaba generando PASES DE SYNERGY UNLIMITED a los invitados.
-// En la boletera la pestaña dice "Boleto de Afiliados", pero el tipo `general`
-// arrastra la lógica del pase general del evento grande. Lo que se ve en su
-// panel de plantillas NO es lo único que ese tipo dispara.
+// `free`      — el mismo boleto azul que dan las landings. No distinguía en la
+//               puerta a quién trajo un afiliado.
+// `general`   — se probó el 4-ago-2026 porque su panel lo rotula "Pase de
+//               Afiliado", y hubo que revertirlo de urgencia el 6-ago: les
+//               daba además acceso a SYNERGY UNLIMITED, un evento de paga.
+// `affiliate` — tipo dedicado que la boletera creó el 6-ago-2026 a petición
+//               nuestra. Es el que va.
 //
-// Antes de reintentarlo: confirmar con la boletera qué identificador emite el
-// pase naranja SIN darle acceso a Synergy Unlimited, y probar con UN invitado
-// real revisando qué recibió — no basta con que la API responda 201.
+// Verificado antes de activarlo (6-ago-2026), no solo que la API respondiera:
+//   · el boleto abre y muestra el pase naranja "PASE DE AFILIADO"
+//   · `GET /api/internal/tickets?event_id=<Synergy Unlimited>&email=<invitado>`
+//     devuelve vacío — no concede acceso al evento de paga
+//   · los 56 invitados del episodio de `general` conservan su boleto vivo
+//
+// Si algún día hay que tocarlo, esa tercera comprobación es la que importa:
+// que la API responda 201 no dice nada de lo que la persona recibe.
 
 export interface DatosBoleto {
   eventId: string;
