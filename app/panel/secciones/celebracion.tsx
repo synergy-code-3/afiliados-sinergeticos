@@ -146,7 +146,7 @@ function PaseAfiliado({ nombreInvitado }: { nombreInvitado: string }) {
               </span>
             </div>
             <div className="cel-pase-linea" />
-            <p className="cel-pase-etiqueta">Pase de Afiliado ·</p>
+            <p className="cel-pase-etiqueta">Pase de Invitado Especial ·</p>
             <p className="cel-pase-nombre">{nombreInvitado}</p>
             <div className="cel-pase-pie">
               <span className="cel-chip-cortesia">Cortesía</span>

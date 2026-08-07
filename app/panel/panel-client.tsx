@@ -498,7 +498,7 @@ export default function PanelClient({
               </p>
               <h1 className="text-3xl font-extrabold">Hola, {apodo || nombre.split(" ")[0]}</h1>
               <p className="mt-1.5 text-white/55">
-                Inscribe a tus invitados y su Pase de Afiliado les llega por WhatsApp.
+                Inscribe a tus invitados y su Pase de Invitado Especial les llega por WhatsApp.
               </p>
             </div>
           </div>

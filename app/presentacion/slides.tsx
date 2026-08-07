@@ -284,7 +284,7 @@ export const SLIDES: readonly Slide[] = [
             ],
             [
               "🎟️",
-              "Reciben un Pase de Afiliado de cortesía",
+              "Reciben un Pase de Invitado Especial de cortesía",
               "Su pase al Seminario de Emprendedor a Empresario Digital les llega por WhatsApp, sin costo.",
             ],
             [
@@ -378,7 +378,7 @@ export const SLIDES: readonly Slide[] = [
             ],
             [
               "El pase se manda solo",
-              "Registras a tu invitado y el sistema le envía su Pase de Afiliado por WhatsApp, al instante.",
+              "Registras a tu invitado y el sistema le envía su Pase de Invitado Especial por WhatsApp, al instante.",
             ],
             [
               "Nosotros cerramos en el evento",
@@ -408,7 +408,7 @@ export const SLIDES: readonly Slide[] = [
             ["Invita a tu +1", "Al Seminario de Emprendedor a Empresario Digital."],
             [
               "Confirma que asista",
-              "Su Pase de Afiliado de cortesía es GRATIS — se lo mandamos nosotros.",
+              "Su Pase de Invitado Especial de cortesía es GRATIS — se lo mandamos nosotros.",
             ],
             ["Cobra tu comisión", "Si tu invitado se une al Club, esa comisión es tuya."],
           ].map(([titulo, texto], i) => (
@@ -457,7 +457,7 @@ export const SLIDES: readonly Slide[] = [
               <div className="pres-inset px-4 py-2.5 text-sm text-white/60">WhatsApp</div>
               <div className="pres-inset px-4 py-2.5 text-sm text-white/40">Correo · opcional</div>
               <div className="rounded-xl bg-[#19e16d] px-4 py-2.5 text-center text-sm font-extrabold text-black">
-                Enviar Pase de Afiliado →
+                Enviar Pase de Invitado Especial →
               </div>
             </div>
           </div>
@@ -466,7 +466,7 @@ export const SLIDES: readonly Slide[] = [
             <p className="mt-4 text-xl font-bold">Su pase llega por WhatsApp</p>
             <div className="mt-4">
               <div className="burbuja-wa">
-                🎟️ ¡Tu Pase de Afiliado está listo! Te esperamos en el Seminario.
+                🎟️ ¡Tu Pase de Invitado Especial está listo! Te esperamos en el Seminario.
               </div>
               <p className="mt-2 text-right text-xs text-white/45">al instante ✓✓</p>
             </div>
